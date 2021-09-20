@@ -4,7 +4,28 @@
 #ifndef TIMING_FUNCTIONS_H
 #define TIMING_FUNCTIONS_H
 
+#include <vector>
 #include "../global/global.h"
+
+class OneTime
+{
+ public:
+  const char* name;
+  int n_steps = 0;
+  Real time_start;
+  Real t_min;
+  Real t_max;
+  Real t_avg;
+  Real t_all=0;
+  OneTime(const char* input_name){
+    name = input_name;
+  }
+  void Start();
+  void End();
+  void PrintStep();
+  void PrintAverage();
+  void PrintAll();
+};
 
 
 class Time
@@ -86,6 +107,8 @@ public:
   Real time_cooling_all;
   #endif
 
+  std::vector<OneTime> onetimes;
+
   Time();
   void Initialize();
   void Start_Timer();
@@ -104,8 +127,3 @@ public:
 
 #endif
 #endif
-
-
-
-
-
