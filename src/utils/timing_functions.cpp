@@ -15,6 +15,36 @@ using namespace std;
 #endif
 
 
+void OneTime::Start(){
+  time_start = get_time();
+}
+void OneTime::End(){
+  n_steps ++;
+  Real time_end = get_time();
+  Real time = (time_end - time_start)*1000;
+#ifdef MPI_CHOLLA
+  t_min = ReduceRealMin(time);
+  t_max = ReduceRealMax(time);
+  t_avg = ReduceRealAvg(time);
+#else
+  t_min = time;
+  t_max = time;
+  t_avg = time;
+  #endif
+  if (n_steps > 0) t_all += t_max;
+}
+void OneTime::PrintStep(){
+  chprintf(" Time %-19s min: %9.4f  max: %9.4f  avg: %9.4f   ms\n", name, t_min, t_max, t_avg);
+}
+void OneTime::PrintAverage(){
+  chprintf(" Time %-19s avg: %9.4f   ms\n", name, t_all/n_steps);
+}
+void OneTime::PrintAll(){
+  chprintf(" Time %-19s all: %9.4f   ms\n", name, t_all);
+}
+
+
+
 Time::Time( void ){}
 
 
@@ -45,6 +75,8 @@ void Time::Initialize(){
   #endif
 
   chprintf( "\nTiming Functions is ON \n");
+
+  onetimes = {OneTime("MPI_BLOCK"),OneTime("MPI_X"),OneTime("MPI_Y"),OneTime("MPI_Z")};
 }
 
 
@@ -152,6 +184,7 @@ void Time::End_and_Record_Time( int time_var ){
     if (n_steps > 0) time_cooling_all += t_max;
   }
   #endif
+
 }
 
 
@@ -178,7 +211,9 @@ void Time::Print_Times(){
   #ifdef COOLING_GRACKLE
   chprintf(" Time Cooling           min: %9.4f  max: %9.4f  avg: %9.4f   ms\n", time_cooling_min, time_cooling_max, time_cooling_mean);
   #endif
-
+  for (OneTime x : onetimes){
+    x.PrintStep();
+  }
 
 }
 
@@ -256,6 +291,10 @@ void Time::Print_Average_Times( struct parameters P ){
   chprintf(" Time Advance Part 2    avg: %9.4f   ms\n", time_advance_particles_2_all);
   #endif
   #endif
+  for (OneTime x : onetimes){
+    x.PrintAverage();
+  }
+
 
   #ifdef COOLING_GRACKLE
   chprintf(" Time Cooling           avg: %9.4f   ms\n", time_cooling_all);

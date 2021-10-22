@@ -1,6 +1,6 @@
 #-- Set default include makefile
 MACHINE ?= $(shell builds/machine.sh)
-TYPE    ?= hydro
+TYPE    ?= supernova
 
 include builds/make.host.$(MACHINE)
 include builds/make.type.$(TYPE)
@@ -9,7 +9,7 @@ DIRS     := src src/analysis src/cooling src/cooling_grackle src/cosmology \
             src/cpu src/global src/gravity src/gravity/paris src/grid src/hydro \
             src/integrators src/io src/main.cpp src/main.o src/model src/mpi \
             src/old_cholla src/particles src/reconstruction \
-            src/riemann_solvers src/utils
+            src/riemann_solvers src/utils src/cluster
 
 SUFFIX ?= .$(TYPE).$(MACHINE)
 

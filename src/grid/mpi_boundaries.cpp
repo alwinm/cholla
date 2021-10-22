@@ -77,6 +77,8 @@ void Grid3D::Set_Boundaries_MPI_SLAB(int *flags, struct parameters P)
 
 void Grid3D::Set_Boundaries_MPI_BLOCK(int *flags, struct parameters P)
 {
+  Timer.onetimes[0].Start();
+  Timer.onetimes[1].Start();
   #ifdef PARTICLES
   // Clear the vectors that contain the particles IDs to be transfred
   if ( Particles.TRANSFER_PARTICLES_BOUNDARIES ){
@@ -108,6 +110,8 @@ void Grid3D::Set_Boundaries_MPI_BLOCK(int *flags, struct parameters P)
 
   }
   MPI_Barrier(world);
+  Timer.onetimes[1].End();
+  Timer.onetimes[2].Start();
   if (H.ny > 1) {
 
     /* Step 4 - Send MPI y-boundaries */
@@ -129,8 +133,9 @@ void Grid3D::Set_Boundaries_MPI_BLOCK(int *flags, struct parameters P)
     }
   }
   MPI_Barrier(world);
+  Timer.onetimes[2].End();
+  Timer.onetimes[3].Start();
   if (H.nz > 1) {
-
     /* Step 7 - Send MPI z-boundaries */
     if (flags[4]==5 || flags[5]==5) {
       Load_and_Send_MPI_Comm_Buffers(2, flags);
@@ -149,11 +154,11 @@ void Grid3D::Set_Boundaries_MPI_BLOCK(int *flags, struct parameters P)
       #endif
     }
   }
-
+  Timer.onetimes[3].End();
   #ifdef PARTICLES
   if ( Particles.TRANSFER_PARTICLES_BOUNDARIES)  Finish_Particles_Transfer();
   #endif
-
+  Timer.onetimes[0].End();
 }
 
 
@@ -403,7 +408,6 @@ void Grid3D::Set_Edge_Boundary_Extents(int dir, int edge, int *imin, int *imax)
 
 void Grid3D::Load_and_Send_MPI_Comm_Buffers(int dir, int *flags)
 {
-
   switch(flag_decomp)
   {
     case SLAB_DECOMP:
@@ -415,7 +419,6 @@ void Grid3D::Load_and_Send_MPI_Comm_Buffers(int dir, int *flags)
       Load_and_Send_MPI_Comm_Buffers_BLOCK(dir, flags);
       break;
   }
-
 }
 
 void Grid3D::Load_and_Send_MPI_Comm_Buffers_SLAB(int *flags)
@@ -1496,7 +1499,6 @@ void Grid3D::Wait_and_Unload_MPI_Comm_Buffers_SLAB(int *flags)
 
 void Grid3D::Wait_and_Unload_MPI_Comm_Buffers_BLOCK(int dir, int *flags)
 {
-
   #ifdef PARTICLES
   // If we are transfering the particles buffers we dont need to unload the main buffers
   if ( Particles.TRANSFER_PARTICLES_BOUNDARIES ) return;

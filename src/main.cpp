@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include "cluster/supernova.h" // move this stuff into grid3D eventually
 #include "global/global.h"
 #include "grid/grid3D.h"
 #include "io/io.h"
@@ -138,6 +139,10 @@ int main(int argc, char *argv[])
   G.Get_Particles_Acceleration();
   #endif
 
+  #ifdef SUPERNOVA
+  Supernova::Initialize(G, &P);
+  #endif
+
   chprintf("Dimensions of each cell: dx = %f dy = %f dz = %f\n", G.H.dx, G.H.dy, G.H.dz);
   chprintf("Ratio of specific heats gamma = %f\n",gama);
   chprintf("Nstep = %d  Timestep = %f  Simulation time = %f\n", G.H.n_step, G.H.dt, G.H.t);
@@ -181,10 +186,25 @@ int main(int argc, char *argv[])
     // get the start time
     start_step = get_time();
 
+    /*
+    printf("Supernova Update_Grid Finished\n");
+    fflush(stdout);
+
+    */
     // calculate the timestep
     G.set_dt(dti);
-
+    /*
+    printf("G.set_dt Finished\n");
+    fflush(stdout);
+    MPI_Barrier(world);
+    */
     if (G.H.t + G.H.dt > outtime) G.H.dt = outtime - G.H.t;
+
+    #ifdef SUPERNOVA
+    Supernova::Update_Grid(G, dti);
+    #endif
+
+
 
     #ifdef PARTICLES
     //Advance the particles KDK( first step ): Velocities are updated by 0.5*dt and positions are updated by dt
