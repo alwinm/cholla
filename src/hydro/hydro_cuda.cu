@@ -10,6 +10,19 @@
 #include "../hydro/hydro_cuda.h"
 #include "../gravity/gravity_cuda.h"
 
+__device__ double atomicMax(double* address, double val)
+{
+  unsigned long long int* address_as_ull = (unsigned long long int*)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed,
+		    __double_as_longlong(fmax(val, __longlong_as_double(assumed)))
+		    );
+  } while (assumed != old);
+  return __longlong_as_double(old);
+}
+
 
 __global__ void Update_Conserved_Variables_1D(Real *dev_conserved, Real *dev_F, int n_cells, int x_off, int n_ghost, Real dx, Real xbound, Real dt, Real gamma, int n_fields)
 {
@@ -584,13 +597,51 @@ __global__ void Calc_dt_3D(Real *dev_conserved, int nx, int ny, int nz, int n_gh
 
 }
 
+
+__global__ void Calc_dt_3Db(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real *dev_max_dti, Real gamma)
+{
+
+  Real d, d_inv, vx, vy, vz, E, P, cs;
+  int id, xid, yid, zid, n_cells;
+  int tid;
+  Real max_dti = 0.0
+  n_cells = nx*ny*nz;
+
+  // get a global thread ID
+  id = threadIdx.x + blockIdx.x * blockDim.x;
+  zid = id / (nx*ny);
+  yid = (id - zid*nx*ny) / nx;
+  xid = id - zid*nx*ny - yid*nx;
+  // and a thread id within the block
+  tid = threadIdx.x;
+
+  // threads corresponding to real cells do the calculation
+  if (xid > n_ghost-1 && xid < nx-n_ghost && yid > n_ghost-1 && yid < ny-n_ghost && zid > n_ghost-1 && zid < nz-n_ghost)
+  {
+    // every thread collects the conserved variables it needs from global memory
+    d  =  dev_conserved[            id];
+    d_inv = 1.0 / d;
+    vx =  dev_conserved[1*n_cells + id] * d_inv;
+    vy =  dev_conserved[2*n_cells + id] * d_inv;
+    vz =  dev_conserved[3*n_cells + id] * d_inv;
+    E  = dev_conserved[4*n_cells + id];
+    P  = (E - 0.5*d*(vx*vx + vy*vy + vz*vz)) * (gamma - 1.0);
+    cs = sqrt(d_inv * gamma * P);
+    max_dti = fmax(max_dti,(fabs(vx)+cs)/dx);
+    max_dti = fmax(max_dti,(fabs(vy)+cs)/dy);
+    max_dti = fmax(max_dti,(fabs(vz)+cs)/dz);
+    dev_max_dti[tid] = atomicMax(dev_max_dti,max_dti);
+  }
+  
+}
+
 Real Calc_dt_GPU(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real gamma, Real max_dti_slow){
 
   // Assumes dev_conserved, dev_dti_array, and host_dti_array are already allocated
   // global dev_dti_array is from global_cuda.h
   // global host_dti_array is from global_cuda.h
   // global TPB is from global_cuda.h
-  
+
   int num_blocks = (nx*ny*nz + TPB - 1) / TPB;
   // set values for GPU kernels
   // number of blocks per 1D grid
@@ -598,7 +649,7 @@ Real Calc_dt_GPU(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, Real 
   //  number of threads per 1D block
   dim3 dim1dBlock(TPB, 1, 1);
   // compute dt and store in dev_dti_array
-
+  cudaDeviceSynchronize();
   if (nx > 1 && ny == 1 && nz == 1) //1D
   {
     hipLaunchKernelGGL(Calc_dt_1D, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, nx, n_ghost, dx, dev_dti_array, gamma);
@@ -620,9 +671,47 @@ Real Calc_dt_GPU(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, Real 
   for (int i=0; i<num_blocks; i++) {
     max_dti = fmax(max_dti, host_dti_array[i]);
   }
+  cudaDeviceSynchronize();
+  return max_dti;
+
+}
+
+Real Calc_dt_GPUb(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, Real dx, Real dy, Real dz, Real gamma, Real max_dti_slow){
+  cudaDeviceSynchronize();
+  // Assumes dev_conserved, dev_dti_array, and host_dti_array are already allocated
+  // global dev_dti_array is from global_cuda.h
+  // global host_dti_array is from global_cuda.h
+  // global TPB is from global_cuda.h
+  
+  int num_blocks = (nx*ny*nz + TPB - 1) / TPB;
+  // set values for GPU kernels
+  // number of blocks per 1D grid
+  dim3 dim1dGrid(num_blocks, 1, 1);
+  //  number of threads per 1D block
+  dim3 dim1dBlock(TPB, 1, 1);
+  // compute dt and store in dev_dti_array
+
+  Real *d_dti_array;
+  Real *h_dti_array;
+  CudaSafeCall( cudaMalloc (&d_dti_array,TPB*sizeof(Real)));
+  cudaMemset(d_dti_array, 0, TPB*sizeof(int));
+  hipLaunchKernelGGL(Calc_dt_3Db, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, nx, ny, nz, n_ghost, dx, dy, dz, d_dti_array, gamma);
+  CudaCheckError();
+
+  // copy dev_dti_array to host_dti_array
+  CudaSafeCall( cudaMemcpy(h_dti_array, d_dti_array, TPB*sizeof(Real), cudaMemcpyDeviceToHost) );
+
+  Real max_dti = 0.0;
+  for (int i=0; i<TPB; i++) {
+    max_dti = fmax(max_dti, h_dti_array[i]);
+  }
+  cudaDeviceSynchronize();
   return max_dti;
   
 }
+
+
+
 
 #ifdef DE
 __global__ void Partial_Update_Advected_Internal_Energy_1D( Real *dev_conserved, Real *Q_Lx, Real *Q_Rx, int nx, int n_ghost, Real dx, Real dt, Real gamma, int n_fields ){

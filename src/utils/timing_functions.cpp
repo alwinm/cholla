@@ -76,7 +76,7 @@ void Time::Initialize(){
 
   chprintf( "\nTiming Functions is ON \n");
 
-  onetimes = {OneTime("MPI_BLOCK"),OneTime("MPI_X"),OneTime("MPI_Y"),OneTime("MPI_Z")};
+  onetimes = {OneTime("MPI_BLOCK"),OneTime("MPI_X"),OneTime("MPI_Y"),OneTime("MPI_Z"),OneTime("Calc_dt_a"),OneTime("Calc_dt_b")};
 }
 
 

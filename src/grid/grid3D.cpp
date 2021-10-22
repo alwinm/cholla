@@ -639,8 +639,12 @@ Real Grid3D::Update_Grid(void)
   #endif //COOLING_GPU
 
   // ==Calculate the next time step with Calc_dt_GPU from hydro/hydro_cuda.h==
+  Timer.onetimes[4].Start();
   max_dti = Calc_dt_GPU(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.dx, H.dy, H.dz, gama, max_dti_slow);
-
+  Timer.onetimes[4].End();
+  Timer.onetimes[5].Start();
+  Real max_dtib = Calc_dt_GPUb(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.dx, H.dy, H.dz, gama, max_dti_slow);
+  Timer.onetimes[5].End();
   // ==Copy the updated conserved variable array to CPU==
   #ifndef HYDRO_GPU
   CudaSafeCall( cudaMemcpy(g1, C.device, H.n_fields*H.n_cells*sizeof(Real), cudaMemcpyDeviceToHost) );
