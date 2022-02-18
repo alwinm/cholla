@@ -1593,19 +1593,10 @@ void Grid3D::Write_Grid_HDF5(hid_t file_id)
      at the current simulation time. */
 void Grid3D::Write_2D_HDF5(hid_t file_id, hid_t dataspace_id, const char *name, Real *dataset_buffer)
 {
-  // plan: MPI reduce Sum of buffer, then only rank 0 does the writing
-  #ifdef MPI_CHOLLA
-  
-  if (procID == root) {
-    hid_t dataset_id = H5Dcreate(file_id, name, H5T_IEEE_F64BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    status = H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dataset_buffer_d);
-    status = H5Dclose(dataset_id);
-  }
-  #else
+  // currently not possible: MPI reduce Sum of buffer, then only rank 0 does the writing
   hid_t dataset_id = H5Dcreate(file_id, name, H5T_IEEE_F64BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   status = H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, dataset_buffer_d);
   status = H5Dclose(dataset_id);
-  #endif
   // To put or not to put the free() command here as well?
 }
 
