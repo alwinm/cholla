@@ -23,8 +23,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        make-type: [hydro, gravity, disk, particles, cosmology]
-        gpu-api: [HIP, CUDA]
+        make-type: [hydro]
+        gpu-api: [HIP]
         # NOTE: if more than one parameter is in any of these three variables
         # you need to manually exclude it for the GPU API that doesn't use it.
         # An example exclude is shown below but commented out. Uncomment and
