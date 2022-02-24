@@ -97,7 +97,7 @@ jobs:
       id: hipcache
       with:
         path: /opt/rocm
-	key: ${{runner.os}}-rocm
+        key: ${{runner.os}}-rocm
 
     - name: Install HIP, ROCm, and HIPFFT
       if: (matrix.gpu-api == 'HIP') && (steps.hipcache.cache-hit != 'true')
