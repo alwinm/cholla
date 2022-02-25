@@ -97,8 +97,16 @@ jobs:
       uses: actions/cache@v2
       id: hipcache
       with:
-        path: /opt/rocm
+        path: ~/rocm.tar
         key: ${{runner.os}}-rocm
+
+    - name: Untar cache
+      if: |
+        matrix.gpu-api == 'HIP' &&
+        steps.hipcache.outputs.cache-hit == 'true'
+      run: |
+        sudo tar -xf ~/rocm.tar -C /opt/
+        echo "ROCM_PATH=/opt/rocm" >> $GITHUB_ENV	
 
     - name: Install HIP, ROCm, and HIPFFT
       if: |
@@ -162,3 +170,7 @@ jobs:
       run: |
         source builds/scripts/run_tests.sh
         buildChollaTests
+
+    - name: Tar and cache ROCM
+      run: |
+        sudo tar -cf ~/rocm.tar /opt/rocm/
