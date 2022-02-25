@@ -89,10 +89,16 @@ void Grid3D::Get_Position(long i, long j, long k, Real *x_pos, Real *y_pos, Real
 #else   /*MPI_CHOLLA*/
 
   /* position relative to local xyz bounds */
+  /*
   *x_pos = H.xblocal + H.dx*(i-H.n_ghost) + 0.5*H.dx;
   *y_pos = H.yblocal + H.dy*(j-H.n_ghost) + 0.5*H.dy;
   *z_pos = H.zblocal + H.dz*(k-H.n_ghost) + 0.5*H.dz;
-
+  */
+  //* Slightly better proposal: 
+  *x_pos = H.xbound + H.dx*(nx_local_start+i-H.n_ghost) + 0.5*H.dx;
+  *y_pos = H.ybound + H.dy*(ny_local_start+j-H.n_ghost) + 0.5*H.dy;
+  *z_pos = H.zbound + H.dz*(nz_local_start+k-H.n_ghost) + 0.5*H.dz;  
+  //*/   
 
 #endif  /*MPI_CHOLLA*/
 
