@@ -294,6 +294,7 @@ void Grid3D::Sound_Wave(Real rho, Real vx, Real vy, Real vz, Real P, Real A)
         C.momentum_y[id] = C.momentum_y[id] + A * sin(2.0*PI*x_pos);
         C.momentum_z[id] = C.momentum_z[id] + A * sin(2.0*PI*x_pos);
         C.Energy[id]     = C.Energy[id]     + A * (1.5) * sin(2*PI*x_pos);
+	// TODO: Add DE 
       }
     }
   }
@@ -459,6 +460,8 @@ void Grid3D::Shu_Osher()
     // get centered x position
     Get_Position(i, H.n_ghost, H.n_ghost, &x_pos, &y_pos, &z_pos);
 
+    // TODO: Add DE
+    
     if (x_pos < -0.8)
     {
       C.density[id] = 3.857143;
@@ -505,6 +508,9 @@ void Grid3D::Blast_1D()
       C.momentum_z[id] = 0.0;
       P = 1000.0;
       C.Energy[id] = P/(gama-1.0);
+      #ifdef DE
+      C.GasEnergy[id]  = P/(gama-1.0);
+      #endif
     }
     else if (x_pos > 0.9)
     {
@@ -514,6 +520,9 @@ void Grid3D::Blast_1D()
       C.momentum_z[id] = 0.0;
       P = 100;
       C.Energy[id] = P/(gama-1.0);
+      #ifdef DE
+      C.GasEnergy[id]  = P/(gama-1.0);
+      #endif      
     }
     else
     {
@@ -523,6 +532,9 @@ void Grid3D::Blast_1D()
       C.momentum_z[id] = 0.0;
       P = 0.01;
       C.Energy[id] = P/(gama-1.0);
+      #ifdef DE
+      C.GasEnergy[id]  = P/(gama-1.0);
+      #endif      
     }
   }
 }
@@ -540,6 +552,8 @@ void Grid3D::KH()
   Real vx, vy, vz;
   Real d1, d2, v1, v2, P, A;
 
+  // TODO: Add DE
+  
   d1 = 2.0;
   d2 = 1.0;
   v1 = 0.5;
@@ -614,6 +628,7 @@ void Grid3D::KH()
  *  \brief Initialize the grid with a Kelvin-Helmholtz instability whose modes are resolution independent. */
 void Grid3D::KH_res_ind()
 {
+  // TODO: Add DE
   int i, j, k, id;
   int istart, iend, jstart, jend, kstart, kend;
   Real x_pos, y_pos, z_pos;
@@ -734,6 +749,7 @@ void Grid3D::KH_res_ind()
  *  \brief Initialize the grid with a 2D Rayleigh-Taylor instability. */
 void Grid3D::Rayleigh_Taylor()
 {
+  // TODO: Add DE
   int i, j, id;
   Real x_pos, y_pos, z_pos;
   Real dl, du, vy, g, P, P_0;
@@ -784,6 +800,7 @@ void Grid3D::Rayleigh_Taylor()
  *  \brief Initialize the grid with the 2D Gresho problem described in LW03. */
 void Grid3D::Gresho()
 {
+
   int i, j, id;
   Real x_pos, y_pos, z_pos, xc, yc, r, phi;
   Real d, vx, vy, P, v_boost;
@@ -875,6 +892,9 @@ void Grid3D::Gresho()
       C.Energy[id] = P/(gama-1.0) + 0.5*d*(vx*vx + vy*vy);
       //r = sqrt((x_pos-xc)*(x_pos-xc) + (y_pos-yc)*(y_pos-yc));
       //printf("%f %f %f %f %f\n", x_pos, y_pos, r, vx, vy);
+      #ifdef DE
+      C.GasEnergy[id] = P/(gama-1.0);
+      #endif
     }
   }
 
@@ -997,6 +1017,7 @@ void Grid3D::Noh_3D()
  *  \brief Initialize the grid with a 2D disk following a Kuzmin profile. */
 void Grid3D::Disk_2D()
 {
+  // TODO: Add DE
   int i, j, id;
   Real x_pos, y_pos, z_pos, r, phi;
   Real d, n, a, a_d, a_h, v, vx, vy, P, T_d, x;
