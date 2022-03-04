@@ -1,7 +1,8 @@
 #-- Set default include makefile
 MACHINE ?= $(shell builds/machine.sh)
 TYPE    ?= hydro
-
+# Architecture must be set correctly
+CHOLLA_ARCH ?= sm_70
 include builds/make.host.$(MACHINE)
 include builds/make.type.$(TYPE)
 
@@ -133,7 +134,7 @@ else
   CUDA_LIB  ?= -L$(CUDA_ROOT)/lib64 -lcudart
   CXXFLAGS  += $(CUDA_INC)
   GPUCXX    ?= nvcc
-  GPUFLAGS  += --expt-extended-lambda -arch sm_70 -fmad=false
+  GPUFLAGS  += --expt-extended-lambda -arch $(CHOLLA_ARCH) -fmad=false
   GPUFLAGS  += $(CUDA_INC)
   LD        := $(CXX)
   LDFLAGS   += $(CXXFLAGS)
