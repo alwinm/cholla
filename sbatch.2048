@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -A CSC380
+#SBATCH -t 04:00:00
+#SBATCH -N 64
+
+cd $SLURM_SUBMIT_DIR
+cd /gpfs/alpine/csc380/scratch/alwin/git/cfoe/
+#srun -N8 -n64 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n64.txt
+#srun -N1 -n1 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n1.txt
+#srun -N1 -n8 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n8.txt
+#srun -N64 -n512 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.m82.frontier cube.1024
+
+# 2048 is 16x as expensive
+#
+export HDF5_USE_FILE_LOCKING=FALSE
+srun -N64 -n512 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.m82.frontier cube.2048

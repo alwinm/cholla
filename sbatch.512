@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH -A CSC380
+#SBATCH -t 04:00:00
+#SBATCH -N 1
+
+cd $SLURM_SUBMIT_DIR
+
+#srun -N8 -n64 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n64.txt
+#srun -N1 -n1 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n1.txt
+#srun -N1 -n8 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.hydro.frontier n8.txt
+#srun -N64 -n512 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.m82.frontier cube.1024
+
+# 2048 is 16x as expensive
+#
+
+srun -N1 -n8 -c8 --gpus-per-task=1 --gpu-bind=closest ./bin/cholla.m82.frontier cube.512
