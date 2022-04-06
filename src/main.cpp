@@ -14,6 +14,7 @@
 #include "io/io.h"
 #include "utils/error_handling.h"
 
+#include "utils/reduce.h"
 
 int main(int argc, char *argv[])
 {
@@ -89,6 +90,16 @@ int main(int argc, char *argv[])
   chprintf("Setting initial conditions...\n");
   G.Set_Initial_Conditions(P);
   chprintf("Initial conditions set.\n");
+
+  atomic_reduce_host(G.C.device,G.H.n_cells);
+  shared_reduce_host(G.C.device,G.H.n_cells);
+  one_reduce_host(G.C.device,G.H.n_cells);
+  gloop_reduce_host(G.C.device,G.H.n_cells);
+
+  chexit(0);
+
+
+  
   // set main variables for Read_Grid initial conditions
   if (strcmp(P.init, "Read_Grid") == 0) {
     dti = C_cfl / G.H.dt;
