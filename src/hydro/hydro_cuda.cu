@@ -702,7 +702,9 @@ __global__ void Partial_Update_Advected_Internal_Energy_1D( Real *dev_conserved,
 
 
   // threads corresponding to real cells do the calculation
-  if (xid > n_ghost-1 && xid < nx-n_ghost)
+  // Alwin: try making as many cells do it as possible
+  
+  if (xid > 0 && xid < nx-1)
   {
     d  =  dev_conserved[            id];
     d_inv = 1.0 / d;
@@ -871,7 +873,8 @@ __global__ void Select_Internal_Energy_1D( Real *dev_conserved, int nx, int n_gh
 
 
   // threads corresponding to real cells do the calculation
-  if (xid > n_ghost-1 && xid < nx-n_ghost)
+  // Alwin: cell index [1,nx-2]
+  if (xid > 0 && xid < nx-1)
   {
     // every thread collects the conserved variables it needs from global memory
     d  =  dev_conserved[            id];
@@ -1037,7 +1040,8 @@ __global__ void Sync_Energies_1D(Real *dev_conserved, int nx, int n_ghost, Real 
 
 
   // threads corresponding to real cells do the calculation
-  if (xid > n_ghost-1 && xid < nx-n_ghost)
+  // Alwin: [1,nx-2]
+  if (xid > 0 && xid < nx-1)
   {
     // every thread collects the conserved variables it needs from global memory
     d  =  dev_conserved[            id];
