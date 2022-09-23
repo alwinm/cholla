@@ -23,7 +23,7 @@ jobs:
     container: docker://alwinm/cholla:cuda_v0.0
     defaults:
       run:
-        shell: /bin/bash
+        shell: bash
     # Matrix for different make types
     strategy:
       fail-fast: false
