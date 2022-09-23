@@ -3,8 +3,6 @@ name: Container Cholla Compile
 on:
   push:
     branches: [ container ]
-  pull-request:
-    branches: [ container ]
   schedule:
     - cron: "37 07 * * 1"  # run every Monday at 07:37UTC. Crontab computed with crontab.guru
   workflow_dispatch:
