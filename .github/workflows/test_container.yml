@@ -21,7 +21,9 @@ jobs:
     # Choose OS/Runner
     runs-on: ubuntu-latest
     container: docker://alwinm/cholla:cuda_v0.0
-    shell: /bin/bash
+    defaults:
+      run:
+        shell: /bin/bash
     # Matrix for different make types
     strategy:
       fail-fast: false
