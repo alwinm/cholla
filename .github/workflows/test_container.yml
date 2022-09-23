@@ -20,7 +20,8 @@ jobs:
 
     # Choose OS/Runner
     runs-on: ubuntu-latest
-    container: alwinm/cholla:cuda_v0.0
+    container: docker://alwinm/cholla:cuda_v0.0
+    shell: /bin/bash
     # Matrix for different make types
     strategy:
       fail-fast: false
@@ -65,7 +66,7 @@ jobs:
     # Perform Build
     - name: Cholla setup
       run: |
-        . builds/run_tests.sh
+        source builds/run_tests.sh
         setupTests -c gcc
         echo "CHOLLA_ROOT           = ${CHOLLA_ROOT}"
         echo "CHOLLA_LAUNCH_COMMAND = ${CHOLLA_LAUNCH_COMMAND}"
@@ -76,14 +77,14 @@ jobs:
         echo "CHOLLA_ENVSET=${CHOLLA_ENVSET}                  >> $GITHUB_ENV
     - name: Build GoogleTest
       run: |
-        . builds/run_tests.sh
+        source builds/run_tests.sh
         buildGoogleTest
         echo "GOOGLETEST_ROOT=${GOOGLETEST_ROOT}" >> $GITHUB_ENV
     - name: Build Cholla
       run: |
-        . builds/run_tests.sh
+        source builds/run_tests.sh
         buildCholla
     - name: Build Tests
       run: |
-        . builds/run_tests.sh
+        source builds/run_tests.sh
         buildChollaTests
