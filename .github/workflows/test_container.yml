@@ -62,6 +62,11 @@ jobs:
     - name: Show HDF5 config
       run: |
         h5cc -showconfig
+    - name: Git Safe Directory
+      run: |
+        git --version
+        git config --global --add safe.directory /__w/cholla/cholla
+        git config --global --add safe.directory '*'
 
     # Install CUDA and dependencies if this is a CUDA build
 
