@@ -20,7 +20,7 @@ jobs:
 
     # Choose OS/Runner
     runs-on: ubuntu-latest
-    container: docker://alwinm/cholla:cuda_v0.0
+    container: docker://alwinm/cholla:cuda_v0.1
     defaults:
       run:
         shell: bash
@@ -66,12 +66,6 @@ jobs:
     # Install CUDA and dependencies if this is a CUDA build
 
     # Perform Build
-    - name: pwd
-      run: |
-        ls
-        pwd
-        git config --global --add safe.directory /__w/cholla/cholla
-        git init
     - name: Cholla setup
       run: |
         source builds/run_tests.sh
