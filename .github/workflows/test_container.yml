@@ -66,6 +66,10 @@ jobs:
     # Install CUDA and dependencies if this is a CUDA build
 
     # Perform Build
+    - name: pwd
+      run: |
+        ls
+        pwd
     - name: Cholla setup
       run: |
         source builds/run_tests.sh
