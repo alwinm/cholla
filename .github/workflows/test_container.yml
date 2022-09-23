@@ -20,7 +20,7 @@ jobs:
 
     # Choose OS/Runner
     runs-on: ubuntu-latest
-    container: docker://alwinm/cholla:cuda_v0.1
+    container: docker://alwinm/cholla:cuda_v0.2
     defaults:
       run:
         shell: bash
@@ -68,8 +68,6 @@ jobs:
     # Perform Build
     - name: Cholla setup
       run: |
-        git config --global --add safe.directory .
-        git config --global --add safe.directory '*'
         source builds/run_tests.sh
         setupTests -c gcc
         echo "CHOLLA_ROOT           = ${CHOLLA_ROOT}"
