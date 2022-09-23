@@ -53,6 +53,7 @@ jobs:
     steps:
 
     # Install required Tools
+    - uses: actions/checkout@v2
     - name: Show MPI version
       run: mpirun --version
     - name: Show HDF5 config
