@@ -70,6 +70,7 @@ jobs:
       run: |
         ls
         pwd
+        git init
     - name: Cholla setup
       run: |
         source builds/run_tests.sh
