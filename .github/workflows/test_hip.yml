@@ -1,0 +1,87 @@
+name: Container Cholla Compile HIP
+
+on:
+  push:
+    branches: [ container ]
+  schedule:
+    - cron: "37 07 * * 1"  # run every Monday at 07:37UTC. Crontab computed with crontab.guru
+  workflow_dispatch:
+
+jobs:
+  Build:
+    name: >
+      Build
+      API:${{ matrix.gpu-api }}
+      Make-Type:${{ matrix.make-type }}
+    # if: ${{ false }}  # If uncommented this line will disable this job
+
+    # Choose OS/Runner
+    runs-on: ubuntu-latest
+    container: docker://alwinm/cholla:hip_v0.0
+    defaults:
+      run:
+        shell: bash
+    # Matrix for different make types
+    strategy:
+      fail-fast: false
+      matrix:
+        make-type: [hydro, gravity, disk, particles, cosmology, mhd]
+        gpu-api: [HIP]
+        # NOTE: if more than one parameter is in any of these three variables
+        # you need to manually exclude it for the GPU API that doesn't use it.
+        # An example exclude is shown below but commented out. Uncomment and
+        # tweak it to fit your needs
+        # CUDA uses the cuda-toolkit-version and gcc-version
+        # HIP uses the clang-version
+
+        # exclude:
+        #   - gpu-api: HIP
+        #     make-type: hydro
+
+    # Setup environment variables
+    env:
+      CHOLLA_MACHINE: github
+      CHOLLA_MAKE_TYPE: ${{ matrix.make-type }}
+      HDF5_ROOT: /usr/lib/x86_64-linux-gnu/hdf5/serial # this env is already set in Dockerfile
+      MPI_ROOT: /usr/lib/x86_64-linux-gnu/openmpi # this env is already set in Dockerfile
+
+    # Run the job itself
+    steps:
+
+    # Install required Tools
+    - uses: actions/checkout@v2
+    - name: Show MPI version
+      run: mpirun --version
+    - name: Show HDF5 config
+      run: h5cc -showconfig
+    - name: Git Safe Directory
+      run: |
+        git --version
+        git config --global --add safe.directory /__w/cholla/cholla
+        git config --global --add safe.directory '*'
+
+    # Perform Build
+    - name: Cholla setup
+      run: |
+        source builds/run_tests.sh
+        setupTests -c gcc
+        echo "CHOLLA_ROOT           = ${CHOLLA_ROOT}"
+        echo "CHOLLA_LAUNCH_COMMAND = ${CHOLLA_LAUNCH_COMMAND}"
+
+        echo "CHOLLA_ROOT=${CHOLLA_ROOT}"                     >> $GITHUB_ENV
+        echo "CHOLLA_LAUNCH_COMMAND=${CHOLLA_LAUNCH_COMMAND}" >> $GITHUB_ENV
+        echo "F_OFFLOAD=${F_OFFLOAD}                          >> $GITHUB_ENV
+        echo "CHOLLA_ENVSET=${CHOLLA_ENVSET}                  >> $GITHUB_ENV
+    - name: Build GoogleTest
+      run: |
+        source builds/run_tests.sh
+        buildGoogleTest
+        echo "GOOGLETEST_ROOT=${GOOGLETEST_ROOT}" >> $GITHUB_ENV
+    - name: Build Cholla
+      run: |
+        source builds/run_tests.sh
+        buildCholla
+    - name: Build Tests
+      run: |
+        source builds/run_tests.sh
+        buildChollaTests
