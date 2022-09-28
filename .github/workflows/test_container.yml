@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         make-type: [hydro, gravity, disk, particles, cosmology, mhd]
-        container: [docker://alwinm/cholla:cuda_v0.2, docker://alwinm/cholla:hip_v0.0]
+        container: ["docker://alwinm/cholla:cuda_v0.2", "docker://alwinm/cholla:hip_v0.0"]
         # gpu-api: [CUDA]
         # NOTE: if more than one parameter is in any of these three variables
         # you need to manually exclude it for the GPU API that doesn't use it.
