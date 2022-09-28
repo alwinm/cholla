@@ -13,7 +13,7 @@ jobs:
       Build
       API:${{ matrix.gpu-api }}
       Make-Type:${{ matrix.make-type }}
-    # if: ${{ false }}  # If uncommented this line will disable this job
+    if: ${{ false }}  # If uncommented this line will disable this job
 
     # Choose OS/Runner
     runs-on: ubuntu-latest
