@@ -12,7 +12,7 @@ jobs:
     name: >
       Build
       Make-Type:${{ matrix.make-type }}
-      Container:${{ matrix.container }}
+      Container:${{ matrix.container.name }}
     # Cuda-toolkit:v${{ matrix.cuda-toolkit-version }}
     # GCC:v${{ matrix.gcc-version }}
     # ROCm:v${{ matrix.rocm-version }}
@@ -21,7 +21,7 @@ jobs:
     # Choose OS/Runner
     runs-on: ubuntu-latest
     container: 
-      image: ${{matrix.container}} 
+      image: ${{matrix.container.link}} 
     defaults:
       run:
         shell: bash
@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         make-type: [hydro, gravity, disk, particles, cosmology, mhd]
-        container: ["docker://alwinm/cholla:cuda_v0.2", "docker://alwinm/cholla:hip_v0.0"]
+        container: [{name: "CUDA", link: "docker://alwinm/cholla:cuda_v0.2"}, {name: "HIP",link: "docker://alwinm/cholla:hip_v0.1"},]
         # gpu-api: [CUDA]
         # NOTE: if more than one parameter is in any of these three variables
         # you need to manually exclude it for the GPU API that doesn't use it.
