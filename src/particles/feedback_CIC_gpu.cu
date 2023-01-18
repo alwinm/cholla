@@ -128,7 +128,7 @@ void supernova::initState(struct parameters *P, part_int_t n_local, Real allocat
 
   hipLaunchKernelGGL(initState_kernel, grid, block, 0, 0, P->prng_seed, randStates);
   CHECK(cudaDeviceSynchronize());
-  printf("supernova::initState end: n_states=%d, ngrid=%d, threads=%d\n", n_states, ngrid, TPB_FEEDBACK);
+  printf("supernova::initState end: n_states=%ld, ngrid=%d, threads=%d\n", n_states, ngrid, TPB_FEEDBACK);
 }
 
 
@@ -487,7 +487,7 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
   if (G.H.dt == 0) return 0.0;
 
   if (G.Particles.n_local > supernova::n_states) {
-    printf("ERROR: not enough cuRAND states (%d) for %d local particles\n", supernova::n_states, G.Particles.n_local );
+    printf("ERROR: not enough cuRAND states (%ld) for %ld local particles\n", supernova::n_states, G.Particles.n_local );
     exit(-1);
   }
 
