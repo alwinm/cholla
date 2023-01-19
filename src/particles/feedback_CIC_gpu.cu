@@ -50,20 +50,15 @@ __global__ void initState_kernel(unsigned int seed, curandStateMRG32k3a_t* state
     curand_init(seed, id, 0, &states[id]);
 }
 
+namespace supernova {
+  void try_loading_snr_file(struct parameters* P) {
 
-/**
- * @brief Does 2 things:
- * -# Read in SN rate data from Starburst 99. If no file exists, assume a constant rate.
- * -# Initialize the cuRAND state, which is analogous to the concept of generators in CPU code.
- *    The state object maintains configuration and status the cuRAND context for each thread on the GPU.
- *    Initialize more than the number of local particles since the latter will change through MPI transfers.
- *
- * @param P pointer to parameters struct. Passes in starburst 99 filename and random number gen seed.
- * @param n_local  number of local particles on the GPU
- * @param allocation_factor
- */
-void supernova::initState(struct parameters *P, part_int_t n_local, Real allocation_factor) {
-  printf("supernova::initState start\n");
+
+  chprintf("Alwin Debug:  Using constant rate\n");
+  time_sn_start = DEFAULT_SN_START;
+  time_sn_end   = DEFAULT_SN_END;
+  return;
+
   std::string snr_filename(P->snr_filename);
   if (snr_filename.size()) {
     chprintf("Specified a SNR filename %s.\n", &snr_filename[0]);
@@ -108,17 +103,35 @@ void supernova::initState(struct parameters *P, part_int_t n_local, Real allocat
     // the following is the time interval between data points
     // (i.e. assumes regular temporal spacing)
     snr_dt = (time_sn_end - time_sn_start) / (snr.size() - 1);
-
+    chprintf("Allocating SNR with %ld elements\n", snr.size());
     CHECK(cudaMalloc((void**) &dev_snr, snr.size() * sizeof(Real)));
+    chprintf("Allocated SNR with %ld elements\n", snr.size());
     CHECK(cudaMemcpy(dev_snr, snr.data(), snr.size() * sizeof(Real), cudaMemcpyHostToDevice));
-
+    chprintf("Copied SNR with %ld elements\n", snr.size());
   } else {
     chprintf("No SN rate file specified.  Using constant rate\n");
     time_sn_start = DEFAULT_SN_START;
     time_sn_end   = DEFAULT_SN_END;
   }
+}
+}
 
-  // Now ititialize the poisson random number generator state.
+
+/**
+ * @brief Does 2 things:
+ * -# Read in SN rate data from Starburst 99. If no file exists, assume a constant rate.
+ * -# Initialize the cuRAND state, which is analogous to the concept of generators in CPU code.
+ *    The state object maintains configuration and status the cuRAND context for each thread on the GPU.
+ *    Initialize more than the number of local particles since the latter will change through MPI transfers.
+ *
+ * @param P pointer to parameters struct. Passes in starburst 99 filename and random number gen seed.
+ * @param n_local  number of local particles on the GPU
+ * @param allocation_factor
+ */
+void supernova::initState(struct parameters* P, part_int_t n_local, Real allocation_factor) {
+  printf("supernova::initState start\n");
+  try_loading_snr_file(P);
+  // Now initialize the poisson random number generator state.
   n_states = n_local*allocation_factor;
   cudaMalloc((void**) &randStates, n_states*sizeof(curandStateMRG32k3a_t));
 
@@ -188,14 +201,182 @@ __device__ Real GetAverageNumberDensity_CGS(Real *density, int xi, int yi, int z
   return GetAverageDensity(density, xi, yi, zi, nxg, nyg, ng) * DENSITY_UNIT / (supernova::MU*MP);
 }
 
+__device__ int kernel_printf(const char * format, ...) {
+  #ifdef ALWIN
+  return printf(const char * format, ...);
+  #endif
+  return 0; // On success, the total number of characters written is returned. Negative values represent ferror
+}
 
-__global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real* pos_x_dev, Real* pos_y_dev, Real* pos_z_dev,
-  Real* mass_dev, Real* age_dev, Real xMin, Real yMin, Real zMin, Real xMax, Real yMax, Real zMax,
-  Real dx, Real dy, Real dz, int nx_g, int ny_g, int nz_g, int n_ghost, Real t, Real dt, Real* dti, Real* info,
-  Real* density, Real* gasEnergy, Real* energy, Real* momentum_x, Real* momentum_y, Real* momentum_z, Real gamma, curandStateMRG32k3a_t* states,
-  Real* prev_dens, int* prev_N, short direction, Real* dev_snr, Real snr_dt, Real time_sn_start, Real time_sn_end) {
+__global__ void Test_Array_Access_int(part_int_t* array) {
+  return;
+}
 
-    __shared__ Real s_info[FEED_INFO_N*TPB_FEEDBACK]; // for collecting SN feedback information, like # of SNe or # resolved.
+__global__ void Test_Array_Access(Real* array) {
+
+  return;
+}
+
+void Test_Array(const char * file, const int line, Real* array) {
+
+  CHECK(cudaDeviceSynchronize());
+  chprintf("Test_Array at LINE %d of FILE %s\n",line,file);
+  hipLaunchKernelGGL(Test_Array_Access, 1, TPB_FEEDBACK, 0, 0,  array);
+  CHECK(cudaDeviceSynchronize());
+  chprintf("Test_Array at LINE %d of FILE %s\n",line,file);
+}
+
+void Test_Array(const char * file, const int line, part_int_t* array) {
+
+  CHECK(cudaDeviceSynchronize());
+  chprintf("Test_Array at LINE %d of FILE %s\n",line,file);
+  hipLaunchKernelGGL(Test_Array_Access_int, 1, TPB_FEEDBACK, 0, 0,  array);
+  CHECK(cudaDeviceSynchronize());
+  chprintf("Test_Array at LINE %d of FILE %s\n",line,file);
+}
+
+__global__ void Cluster_Feedback_Kernel_debug(part_int_t n_local, part_int_t *id, Real* pos_x_dev, Real* pos_y_dev, Real* pos_z_dev,
+                                        Real* mass_dev, Real* age_dev, Real xMin, Real yMin, Real zMin, Real xMax, Real yMax, Real zMax,
+                                        Real dx, Real dy, Real dz, int nx_g, int ny_g, int nz_g, int n_ghost, Real t, Real dt, Real* dti, Real* info,
+                                        Real* density, Real* gasEnergy, Real* energy, Real* momentum_x, Real* momentum_y, Real* momentum_z, Real gamma, curandStateMRG32k3a_t* states,
+                                        Real* prev_dens, int* prev_N, short direction, Real* dev_snr, Real snr_dt, Real time_sn_start, Real time_sn_end) {
+
+  __shared__ Real s_info[FEED_INFO_N*TPB_FEEDBACK]; // for collecting SN feedback information, like # of SNe or # resolved.
+  int tid = threadIdx.x;
+  int gtid = blockIdx.x * blockDim.x + tid ;
+  
+  s_info[FEED_INFO_N*tid]     = 0; // number of supernovae
+  s_info[FEED_INFO_N*tid + 1] = 0; // number of resolved events
+  s_info[FEED_INFO_N*tid + 2] = 0; // number of unresolved events
+  s_info[FEED_INFO_N*tid + 3] = 0; // resolved energy
+  s_info[FEED_INFO_N*tid + 4] = 0; // unresolved momentum
+  s_info[FEED_INFO_N*tid + 5] = 0; // unresolved KE added via momentum injection
+  Real pos_x, pos_y, pos_z;
+  Real cell_center_x, cell_center_y, cell_center_z;
+  Real delta_x, delta_y, delta_z;
+  Real x_frac, y_frac, z_frac;
+  Real px, py, pz, d;
+  //Real t_b, t_a, v_1, v_2, d_b, d_a, p_b, p_a, e;
+  Real feedback_energy=0, feedback_density=0, feedback_momentum=0, n_0, shell_radius;
+  bool is_resolved = false;
+  Real dV = dx*dy*dz;
+  Real local_dti = 0.0;
+  int N=0;
+  
+  if (gtid >= n_local) {
+    return;
+  }
+  
+  pos_x = pos_x_dev[gtid];
+  pos_y = pos_y_dev[gtid];
+  pos_z = pos_z_dev[gtid];
+
+  int indx_x = (int) floor( ( pos_x - xMin ) / dx );
+  int indx_y = (int) floor( ( pos_y - yMin ) / dy );
+  int indx_z = (int) floor( ( pos_z - zMin ) / dz );  
+
+  bool in_local =
+    (pos_x >= xMin && pos_x < xMax) &&
+    (pos_y >= yMin && pos_y < yMax) &&
+    (pos_z >= zMin && pos_z < zMax);
+  
+  bool ignore = indx_x < 0 || indx_y < 0 || indx_z < 0 || indx_x >= nx_g-2*n_ghost || indx_y >= ny_g-2*n_ghost || indx_z >= nz_g-2*n_ghost;
+
+  if (!in_local) {
+    return;
+  }
+
+  if (ignore) {
+    return;
+  }
+
+  if ((t - age_dev[gtid]) > time_sn_end) {
+    return;
+  }
+
+  if (direction == -1) {
+    N = -prev_N[gtid];
+  } else {
+    curandStateMRG32k3a_t state = states[gtid];
+    N = curand_poisson (&state, GetSNRate(t - age_dev[gtid], dev_snr, snr_dt, time_sn_start, time_sn_end) * mass_dev[gtid] * dt);
+    states[gtid] = state;
+    prev_N[gtid] = N;
+  }
+
+  if (N==0) {
+    return;
+  }
+
+  mass_dev[gtid]   -= N * supernova::MASS_PER_SN;
+  feedback_energy   = N * supernova::ENERGY_PER_SN / dV;
+  feedback_density  = N * supernova::MASS_PER_SN / dV;
+  if (direction == -1) {
+    n_0 = prev_dens[gtid];
+  } else {
+    n_0 = GetAverageNumberDensity_CGS(density, indx_x, indx_y, indx_z, nx_g, ny_g, n_ghost);
+    prev_dens[gtid] = n_0;
+  }
+  //int devcount;
+  //cudaGetDeviceCount(&devcount);
+  //int devId;
+  //cudaGetDevice(&devId);
+  //printf("[%d: %d] N: %d, time: %.4e, dt: %.4e, e: %.4e, n_0: %.4e\n", devId, gtid, N, t, dt, feedback_energy, n_0);
+
+  feedback_momentum = direction*supernova::FINAL_MOMENTUM * pow(n_0, -0.17) * pow(fabsf(N), 0.93) / dV;
+  shell_radius  = supernova::R_SH * pow(n_0, -0.46) * pow(fabsf(N), 0.29);
+  is_resolved = 3 * max(dx, max(dy, dz)) <= shell_radius;
+  //if (!is_resolved) printf("UR[%f] at (%d, %d, %d)  id=%d, N=%d, shell_rad=%0.4e, n_0=%0.4e\n", t, indx_x + n_ghost, indx_y + n_ghost, indx_z + n_ghost, (int)id[gtid], N, shell_radius, n_0);
+
+  s_info[FEED_INFO_N*tid] = 1.*N;
+  if (is_resolved) s_info[FEED_INFO_N*tid + 1] =  direction * 1.0;
+  else             s_info[FEED_INFO_N*tid + 2] =  direction * 1.0;
+
+  int indx;
+
+  /*
+  indx_x = (int) floor( ( pos_x - xMin - 0.5*dx ) / dx );
+  indx_y = (int) floor( ( pos_y - yMin - 0.5*dy ) / dy );
+  indx_z = (int) floor( ( pos_z - zMin - 0.5*dz ) / dz );
+  
+  cell_center_x = xMin + indx_x*dx + 0.5*dx;
+  cell_center_y = yMin + indx_y*dy + 0.5*dy;
+  cell_center_z = zMin + indx_z*dz + 0.5*dz;
+  
+  delta_x = 1 - ( pos_x - cell_center_x ) / dx;
+  delta_y = 1 - ( pos_y - cell_center_y ) / dy;
+  delta_z = 1 - ( pos_z - cell_center_z ) / dz;
+  indx_x += n_ghost;
+  indx_y += n_ghost;
+  indx_z += n_ghost;
+  */
+  
+  /*
+  for (int i = 0; i < 2; i++) {
+    for (int j = 0; j < 2; j++) {
+      for (int k = 0; k < 2; k++) {
+	indx = (indx_x+i) + (indx_y+j)*nx_g + (indx_z+k)*nx_g*ny_g;
+	density[indx];
+	gasEnergy[indx];
+	energy[indx];
+	momentum_x[indx];
+	momentum_y[indx];
+	momentum_z[indx];		
+      }
+    }
+  }
+
+  */
+  
+  return;
+}
+
+__global__ void Cluster_Feedback_Kernel_OG(part_int_t n_local, part_int_t *id, Real* pos_x_dev, Real* pos_y_dev, Real* pos_z_dev,
+                                           Real* mass_dev, Real* age_dev, Real xMin, Real yMin, Real zMin, Real xMax, Real yMax, Real zMax,
+                                           Real dx, Real dy, Real dz, int nx_g, int ny_g, int nz_g, int n_ghost, Real t, Real dt, Real* dti, Real* info,
+                                           Real* density, Real* gasEnergy, Real* energy, Real* momentum_x, Real* momentum_y, Real* momentum_z, Real gamma, curandStateMRG32k3a_t* states,
+                                           Real* prev_dens, int* prev_N, short direction, Real* dev_snr, Real snr_dt, Real time_sn_start, Real time_sn_end) {
+
+    Real __shared__ s_info[FEED_INFO_N*TPB_FEEDBACK]; // for collecting SN feedback information, like # of SNe or # resolved.
     int tid = threadIdx.x;
     int gtid = blockIdx.x * blockDim.x + tid ;
 
@@ -206,42 +387,46 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
     s_info[FEED_INFO_N*tid + 4] = 0; // unresolved momentum
     s_info[FEED_INFO_N*tid + 5] = 0; // unresolved KE added via momentum injection
 
+
+    Real pos_x, pos_y, pos_z;
+    Real cell_center_x, cell_center_y, cell_center_z;
+    Real delta_x, delta_y, delta_z;
+    Real x_frac, y_frac, z_frac;
+    Real px, py, pz, d;
+    //Real t_b, t_a, v_1, v_2, d_b, d_a, p_b, p_a, e;
+    Real feedback_energy=0, feedback_density=0, feedback_momentum=0, n_0, shell_radius;
+    bool is_resolved = false;
+    Real dV = dx*dy*dz;
+    Real local_dti = 0.0;
+
+
+
     if (gtid < n_local) {
-      Real pos_x, pos_y, pos_z;
-      Real cell_center_x, cell_center_y, cell_center_z;
-      Real delta_x, delta_y, delta_z;
-      Real x_frac, y_frac, z_frac;
-      Real px, py, pz, d;
-      //Real t_b, t_a, v_1, v_2, d_b, d_a, p_b, p_a, e;
-      Real feedback_energy=0, feedback_density=0, feedback_momentum=0, n_0, shell_radius;
-      bool is_resolved = false;
-      Real dV = dx*dy*dz;
-      Real local_dti = 0.0;
 
       pos_x = pos_x_dev[gtid];
       pos_y = pos_y_dev[gtid];
       pos_z = pos_z_dev[gtid];
-      //printf("(%d): pos:(%.4e, %.4e, %.4e)\n", gtid, pos_x, pos_y, pos_z);
-      //printf("(%d): MIN:(%.4e, %.4e, %.4e)\n", gtid, xMin, yMin, xMin);
+      //kernel_printf("(%d): pos:(%.4e, %.4e, %.4e)\n", gtid, pos_x, pos_y, pos_z);
+      //kernel_printf("(%d): MIN:(%.4e, %.4e, %.4e)\n", gtid, xMin, yMin, xMin);
 
 
       bool in_local = (pos_x >= xMin && pos_x < xMax) &&
                       (pos_y >= yMin && pos_y < yMax) &&
                       (pos_z >= zMin && pos_z < zMax);
       if (!in_local) {
-          printf(" Feedback GPU: Particle outside local domain [%f  %f  %f]  [%f %f] [%f %f] [%f %f]\n ",
+          kernel_printf(" Feedback GPU: Particle outside local domain [%f  %f  %f]  [%f %f] [%f %f] [%f %f]\n ",
                 pos_x, pos_y, pos_z, xMin, xMax, yMin, yMax, zMin, zMax);
       }
 
       int indx_x = (int) floor( ( pos_x - xMin ) / dx );
       int indx_y = (int) floor( ( pos_y - yMin ) / dy );
       int indx_z = (int) floor( ( pos_z - zMin ) / dz );
-      //printf("(%d): indx:(%d, %d, %d)\n", gtid, indx_x, indx_y, indx_z);
+      //kernel_printf("(%d): indx:(%d, %d, %d)\n", gtid, indx_x, indx_y, indx_z);
 
 
       bool ignore = indx_x < 0 || indx_y < 0 || indx_z < 0 || indx_x >= nx_g-2*n_ghost || indx_y >= ny_g-2*n_ghost || indx_z >= nz_g-2*n_ghost;
       if (ignore) {
-          printf(" Feedback GPU: Particle CIC index err [%f  %f  %f]  [%d %d %d] [%d %d %d] \n ",
+          kernel_printf(" Feedback GPU: Particle CIC index err [%f  %f  %f]  [%d %d %d] [%d %d %d] \n ",
                 pos_x, pos_y, pos_z, indx_x, indx_y, indx_z, nx_g, ny_g, nz_g);
       }
 
@@ -256,6 +441,8 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
             states[gtid] = state;
             prev_N[gtid] = N;
           }
+
+	  
           if (N != 0) {
             mass_dev[gtid]   -= N * supernova::MASS_PER_SN;
             feedback_energy   = N * supernova::ENERGY_PER_SN / dV;
@@ -269,14 +456,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
             //cudaGetDeviceCount(&devcount);
             //int devId;
             //cudaGetDevice(&devId);
-            //printf("[%d: %d] N: %d, time: %.4e, dt: %.4e, e: %.4e, n_0: %.4e\n", devId, gtid, N, t, dt, feedback_energy, n_0);
+            //kernel_printf("[%d: %d] N: %d, time: %.4e, dt: %.4e, e: %.4e, n_0: %.4e\n", devId, gtid, N, t, dt, feedback_energy, n_0);
 
             feedback_momentum = direction*supernova::FINAL_MOMENTUM * pow(n_0, -0.17) * pow(fabsf(N), 0.93) / dV;
             shell_radius  = supernova::R_SH * pow(n_0, -0.46) * pow(fabsf(N), 0.29);
             is_resolved = 3 * max(dx, max(dy, dz)) <= shell_radius;
-            if (!is_resolved) printf("UR[%f] at (%d, %d, %d)  id=%d, N=%d, shell_rad=%0.4e, n_0=%0.4e\n",
+	    /*
+            if (!is_resolved) kernel_printf("UR[%f] at (%d, %d, %d)  id=%d, N=%d, shell_rad=%0.4e, n_0=%0.4e\n",
                                         t, indx_x + n_ghost, indx_y + n_ghost, indx_z + n_ghost, (int)id[gtid], N, shell_radius, n_0);
-
+	    */
             s_info[FEED_INFO_N*tid] = 1.*N;
             if (is_resolved) s_info[FEED_INFO_N*tid + 1] =  direction * 1.0;
             else             s_info[FEED_INFO_N*tid + 2] =  direction * 1.0;
@@ -307,15 +495,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
                     indx = (indx_x+i) + (indx_y+j)*nx_g + (indx_z+k)*nx_g*ny_g;
 
                     if (abs(momentum_x[indx]/density[indx]) >= C_L) {
-                      printf("%d, Rb: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Rb: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_x[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_y[indx]/density[indx]) >= C_L) {
-                      printf("%d, Rb: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Rb: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_y[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_z[indx]/density[indx]) >= C_L) {
-                      printf("%d, Rb: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Rb: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_z[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
 
@@ -330,15 +518,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
                     atomicAdd(&energy[indx],    x_frac * y_frac * z_frac * feedback_energy );
 
                     if (abs(momentum_x[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ra: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x  + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ra: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x  + i, indx_y + j, indx_z + k,
                              momentum_x[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_y[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ra: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z  + k,
+                      kernel_printf("%d, Ra: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z  + k,
                              momentum_y[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_z[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ra: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ra: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_z[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
 
@@ -352,15 +540,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
               delta_x =  ( pos_x - xMin - indx_x*dx ) / dx;
               delta_y =  ( pos_y - yMin - indx_y*dy ) / dy;
               delta_z =  ( pos_z - zMin - indx_z*dz ) / dz;
-              //printf("(%d):indx:(%d, %d, %d)\n", gtid, indx_x, indx_y, indx_z);
-              //printf("(%d): pos:(%.4e, %.4e, %.4e), delta_x (%.2e, %.2e, %.2e)\n", gtid, pos_x, pos_y, pos_z, delta_x, delta_y, delta_z);
+              //kernel_printf("(%d):indx:(%d, %d, %d)\n", gtid, indx_x, indx_y, indx_z);
+              //kernel_printf("(%d): pos:(%.4e, %.4e, %.4e), delta_x (%.2e, %.2e, %.2e)\n", gtid, pos_x, pos_y, pos_z, delta_x, delta_y, delta_z);
 
               indx_x += n_ghost;
               indx_y += n_ghost;
               indx_z += n_ghost;
 
               if (abs(feedback_momentum/feedback_density*VELOCITY_UNIT*1e-5) > 40000) {  // injected speeds are greater than 4e4 km/s
-                printf("**** (%d, %d, %d) injected speeds are %.3e km/s\n", indx_x, indx_y, indx_z, feedback_momentum/feedback_density*VELOCITY_UNIT*1e-5);
+                kernel_printf("**** (%d, %d, %d) injected speeds are %.3e km/s\n", indx_x, indx_y, indx_z, feedback_momentum/feedback_density*VELOCITY_UNIT*1e-5);
               }
               feedback_momentum /= sqrt(3.0);
 
@@ -381,8 +569,8 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
 
                     //d  = frac(i, delta_x) * frac(j, delta_y) * frac(k, delta_z) * feedback_density;
                     //e  = frac(i, delta_x) * frac(j, delta_y) * frac(k, delta_z) * feedback_energy;
-                    //printf("(%d, %d, %d): delta:(%.4e, %.4e, %.4e), frac: %.4e\n", indx_x, indx_y, indx_z, delta_x, delta_y, delta_z, frac(i, delta_x)*frac(j, delta_y)*frac(k, delta_z));
-                    //printf("(%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) before: %.4e\n", indx_x, indx_y, indx_z, N, i, j, k, density[indx]*DENSITY_UNIT/0.6/MP);
+                    //kernel_printf("(%d, %d, %d): delta:(%.4e, %.4e, %.4e), frac: %.4e\n", indx_x, indx_y, indx_z, delta_x, delta_y, delta_z, frac(i, delta_x)*frac(j, delta_y)*frac(k, delta_z));
+                    //kernel_printf("(%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) before: %.4e\n", indx_x, indx_y, indx_z, N, i, j, k, density[indx]*DENSITY_UNIT/0.6/MP);
 
 
                     //v_1 = sqrt((momentum_x[indx]*momentum_x[indx] + momentum_y[indx]*momentum_y[indx] + momentum_z[indx]*momentum_z[indx])/density[indx]/density[indx])*VELOCITY_UNIT/1e5;
@@ -391,15 +579,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
                     //d_b = density[indx]*DENSITY_UNIT/0.6/MP;
 
                     if (abs(momentum_x[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ub: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ub: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_x[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_y[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ub: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ub: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_y[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_z[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ub: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ub: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_z[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
 
@@ -416,15 +604,15 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
                     s_info[FEED_INFO_N*tid + i_UNRES_ENERGY] += direction*(px*px + py*py + pz*pz)/2/density[indx]*dV;
 
                     if (abs(momentum_x[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ua: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ua: (%d, %d, %d) vx = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_x[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_y[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ua: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ua: (%d, %d, %d) vy = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_y[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     if (abs(momentum_z[indx]/density[indx]) >= C_L) {
-                      printf("%d, Ua: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
+                      kernel_printf("%d, Ua: (%d, %d, %d) vz = %.3e, d = %.3e, n_0 = %.3e\n", direction, indx_x + i, indx_y + j, indx_z + k,
                              momentum_z[indx]/density[indx]*VELOCITY_UNIT*1e-5, density[indx]*DENSITY_UNIT/0.6/MP, n_0);
                     }
                     //gasEnergy[indx] = energy[indx] - (momentum_x[indx]*momentum_x[indx] + momentum_y[indx]*momentum_y[indx] + momentum_z[indx]*momentum_z[indx])/2/density[indx];
@@ -434,28 +622,29 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
                     //p_a = sqrt(momentum_x[indx]*momentum_x[indx] + momentum_y[indx]*momentum_y[indx] + momentum_z[indx]*momentum_z[indx])*VELOCITY_UNIT/1e5;
 
 
-                    //printf("(%d, %d, %d):(CM: %.2e, SN: %d) (i:%d, j:%d, k:%d) v_1: %.5e v_2: %.5e   V_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, mass_dev[gtid], N, i, j, k, v_1, v_2, (v_2-v_1)/v_1*100);
-                    //printf("   (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) T_b: %.5e T_a: %.5e   T_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, N, i, j, k, t_b, t_a, (t_a-t_b)/t_b*100);
-                    //printf("      (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) d_b: %.5e d_a: %.5e   D_DIFF-> %.1f %%\n", indx_x, indx_y, indx_z, N, i, j, k, d_b, d_a, (d_a-d_b)/d_b*100);
-                    //printf("         (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) p_b: %.5e p_a: %.5e   P_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, N, i, j, k, p_b, p_a, (p_a-p_b)/p_b*100);
+                    //kernel_printf("(%d, %d, %d):(CM: %.2e, SN: %d) (i:%d, j:%d, k:%d) v_1: %.5e v_2: %.5e   V_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, mass_dev[gtid], N, i, j, k, v_1, v_2, (v_2-v_1)/v_1*100);
+                    //kernel_printf("   (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) T_b: %.5e T_a: %.5e   T_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, N, i, j, k, t_b, t_a, (t_a-t_b)/t_b*100);
+                    //kernel_printf("      (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) d_b: %.5e d_a: %.5e   D_DIFF-> %.1f %%\n", indx_x, indx_y, indx_z, N, i, j, k, d_b, d_a, (d_a-d_b)/d_b*100);
+                    //kernel_printf("         (%d, %d, %d):(%d SN) (i:%d, j:%d, k:%d) p_b: %.5e p_a: %.5e   P_DIFF-> %.4f %%\n", indx_x, indx_y, indx_z, N, i, j, k, p_b, p_a, (p_a-p_b)/p_b*100);
 
                     if (direction > 0) {
-                      //printf("urs time:%.3e id:%d N:%d d:%.5e\n", t, id[gtid], N, n_0);
+                      //kernel_printf("urs time:%.3e id:%d N:%d d:%.5e\n", t, id[gtid], N, n_0);
                       local_dti = fmax(local_dti, Calc_Timestep(gamma, density, momentum_x, momentum_y, momentum_z, energy, indx, dx, dy, dz));
                     }
-                  }
-                }
-              }
-            }
+                  } // end k loop
+                } // end j loop
+              } // end i loop
+            } // end resolved if statement
             if (direction > 0) atomicMax(dti, local_dti);
-          }
-        }
-      }
-    }
+          } // end if N!=0
+        } // end time if statement
+      } // ignore/in local if statement
+    } // gtid if statement
 
     __syncthreads();
 
     //reduce the info from all the threads in the block
+
     for (unsigned int s = blockDim.x/2; s > 0; s>>=1) {
       if(tid < s)  {
         s_info[FEED_INFO_N*tid]     += s_info[FEED_INFO_N*(tid + s)];
@@ -468,6 +657,8 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
       __syncthreads();
     }
 
+
+
     if (tid == 0) {
       info[FEED_INFO_N*blockIdx.x]     = s_info[0];
       info[FEED_INFO_N*blockIdx.x + 1] = s_info[1];
@@ -476,21 +667,26 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
       info[FEED_INFO_N*blockIdx.x + 4] = s_info[4];
       info[FEED_INFO_N*blockIdx.x + 5] = s_info[5];
     }
+
+
 }
 
 
+#define Cluster_Feedback_Kernel Cluster_Feedback_Kernel_OG
+
 Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
+  chprintf("Debug 1\n");
   #ifdef CPU_TIME
   G.Timer.Feedback.Start();
   #endif
-
+  chprintf("Debug 1\n");
   if (G.H.dt == 0) return 0.0;
 
   if (G.Particles.n_local > supernova::n_states) {
     printf("ERROR: not enough cuRAND states (%ld) for %ld local particles\n", supernova::n_states, G.Particles.n_local );
     exit(-1);
   }
-
+  chprintf("Debug 1\n");
   Real h_dti = 0.0;
   int direction, ngrid;
   Real h_info[6] = {0, 0, 0, 0, 0, 0};
@@ -500,7 +696,7 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
   Real* d_prev_dens;
   int*  d_prev_N;
 
-
+  chprintf("Debug 2\n");
   if (G.Particles.n_local > 0) {
     CHECK(cudaMalloc(&d_dti, sizeof(Real)));
     CHECK(cudaMemcpy(d_dti, &h_dti, sizeof(Real), cudaMemcpyHostToDevice));
@@ -516,24 +712,51 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
   // assumes ngrid is 1.  The reason being that reduction of
   // d_info is currently done on each block.  Only the first block reduction
   // is used
+  chprintf("Debug 3\n");
 
   do {
     direction = 1;
+    chprintf("Debug 3.1\n");
+    CHECK(cudaDeviceSynchronize());
+    chprintf("Debug 3.1.0\n");
     if (G.Particles.n_local > 0) {
+      CHECK(cudaDeviceSynchronize());
+      chprintf("Debug 3.1.1\n");
+      //Test_Array(__FILE__,__LINE__,G.Particles.partIDs_dev);
+      Test_Array(__FILE__,__LINE__,G.Particles.pos_x_dev);
+      Test_Array(__FILE__,__LINE__,G.Particles.pos_y_dev);
+      Test_Array(__FILE__,__LINE__,G.Particles.pos_z_dev);
+      Test_Array(__FILE__,__LINE__,G.Particles.mass_dev);
+      Test_Array(__FILE__,__LINE__,G.Particles.age_dev);
+      Test_Array(__FILE__,__LINE__,d_dti);
+      Test_Array(__FILE__,__LINE__,d_info);
+      Test_Array(__FILE__,__LINE__,G.C.d_density);
+      Test_Array(__FILE__,__LINE__,G.C.d_GasEnergy);
+      Test_Array(__FILE__,__LINE__,G.C.d_Energy);
+      Test_Array(__FILE__,__LINE__,G.C.d_momentum_x);
+      Test_Array(__FILE__,__LINE__,G.C.d_momentum_y);
+      Test_Array(__FILE__,__LINE__,G.C.d_momentum_z);
+      Test_Array(__FILE__,__LINE__,d_prev_dens);
+      //Test_Array(__FILE__,__LINE__,d_prev_N);
+      Test_Array(__FILE__,__LINE__,dev_snr);      
       hipLaunchKernelGGL(Cluster_Feedback_Kernel, ngrid, TPB_FEEDBACK, 0, 0,  G.Particles.n_local, G.Particles.partIDs_dev, G.Particles.pos_x_dev, G.Particles.pos_y_dev, G.Particles.pos_z_dev,
          G.Particles.mass_dev, G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max,
          G.H.dx, G.H.dy, G.H.dz, G.H.nx, G.H.ny, G.H.nz, G.H.n_ghost, G.H.t, G.H.dt, d_dti, d_info,
          G.C.d_density, G.C.d_GasEnergy, G.C.d_Energy, G.C.d_momentum_x, G.C.d_momentum_y, G.C.d_momentum_z, gama, supernova::randStates, d_prev_dens, d_prev_N, direction,
          dev_snr, snr_dt, time_sn_start, time_sn_end);
-
+      chprintf("Debug 3.1.2\n");
+      CHECK(cudaDeviceSynchronize());
+      chprintf("Debug 3.1.3\n");
       CHECK(cudaMemcpy(&h_dti, d_dti, sizeof(Real), cudaMemcpyDeviceToHost));
+      chprintf("Debug 3.1.4\n");
     }
+    chprintf("Debug 3.2\n");
 
     #ifdef MPI_CHOLLA
     h_dti = ReduceRealMax(h_dti);
     MPI_Barrier(world);
     #endif // MPI_CHOLLA
-
+    chprintf("Debug 3.3\n");
     if (h_dti != 0 && (C_cfl/h_dti < G.H.dt)) {  // timestep too big: need to undo the last operation
       direction = -1;
       if (G.Particles.n_local > 0) {
@@ -547,16 +770,20 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
       }
       G.H.dt = C_cfl/h_dti;
     }
+    chprintf("Debug 3.4\n");
 
   } while (direction == -1);
 
+  chprintf("Debug 4\n");
   if (G.Particles.n_local > 0) {
     CHECK(cudaMemcpy(&h_info, d_info, FEED_INFO_N*sizeof(Real), cudaMemcpyDeviceToHost));
     CHECK(cudaFree(d_dti));
     CHECK(cudaFree(d_info));
     CHECK(cudaFree(d_prev_dens));
     CHECK(cudaFree(d_prev_N));
+    chprintf("Debug 5\n");
   }
+  chprintf("Debug 6\n");
 
   #ifdef MPI_CHOLLA
   MPI_Reduce(&h_info, &info, FEED_INFO_N, MPI_CHREAL, MPI_SUM, root, world);
@@ -593,7 +820,7 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
   #ifdef CPU_TIME
   G.Timer.Feedback.End();
   #endif
-
+  chprintf("Debug 7\n");
   return h_dti;
 }
 

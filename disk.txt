@@ -4,11 +4,11 @@
 
 ######################################
 # number of grid cells in the x dimension
-nx=512
+nx=256
 # number of grid cells in the y dimension
-ny=512
+ny=256
 # number of grid cells in the z dimension
-nz=512
+nz=256
 # final output time
 tout=40000
 # time interval for output
@@ -46,7 +46,7 @@ Lz=15.0
 flag_delta=2
 ddelta_dt=-0.001
 # path to output directory
-outdir=./out/512/
+outdir=./out/256/
 
 
 snr_filename=src/particles/starburst99_snr.txt
