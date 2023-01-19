@@ -16,7 +16,7 @@ outstep=500
 # value of gamma
 gamma=1.6666667
 # name of initial conditions
-init=Disk_3D
+init=Disk_3D_particles
 n_hydro=10
 n_particle=10
 n_slice=1
