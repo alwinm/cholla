@@ -121,7 +121,7 @@ __device__ double atomicAdd(double* address, double val)
 // For any printf in kernel which is FATAL, use printf instead of kernel_printf, since crashing the GPU in fatal situation is ok
 // If printf is not supported by the GPU for any reason, disable non-fatal kernel printfs to avoid crashing the GPU
 // If debug printfs should be turned off during production, disable non-fatal kernel printfs
-__device int kernel_printf(const char * format, ...) {
+inline __device__ int kernel_printf(const char * format, ...) {
 #ifdef ENABLE_KERNEL_PRINTF
   printf(format,...);
 #endif //ENABLE_KERNEL_PRINTF
