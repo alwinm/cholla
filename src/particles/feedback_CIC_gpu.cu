@@ -193,7 +193,7 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
   Real* mass_dev, Real* age_dev, Real xMin, Real yMin, Real zMin, Real xMax, Real yMax, Real zMax,
   Real dx, Real dy, Real dz, int nx_g, int ny_g, int nz_g, int n_ghost, Real t, Real dt, Real* dti, Real* info,
   Real* density, Real* gasEnergy, Real* energy, Real* momentum_x, Real* momentum_y, Real* momentum_z, Real gamma, curandStateMRG32k3a_t* states,
-  Real* prev_dens, int* prev_N, short direction, Real* dev_snr, Real snr_dt, Real time_sn_start, Real time_sn_end) {
+  Real* prev_dens, int* prev_N, short direction, Real* dev_snr, Real snr_dt, Real time_sn_start, Real time_sn_end, int n_step) {
 
     __shared__ Real s_info[FEED_INFO_N*TPB_FEEDBACK]; // for collecting SN feedback information, like # of SNe or # resolved.
     int tid = threadIdx.x;
@@ -251,9 +251,18 @@ __global__ void Cluster_Feedback_Kernel(part_int_t n_local, part_int_t *id, Real
         if ((t - age_dev[gtid]) <= time_sn_end) {  // only calculate this if there will be SN feedback
           if (direction == -1) N = -prev_N[gtid];
           else {
+	    // Use n_step and particle ID to set state based on state[0]
+	    // Do not change state. Recalculate using skipahead each time.
             curandStateMRG32k3a_t state = states[gtid];
+	    // Number of clusters is small compared to n_step
+	    // So skipahead_sequence the cluster_id
+	    // skipahead the n_step
+	    skipahead_sequence((unsigned long long) id[gtid], &state);
+	    skipahead((unsigned int) n_step, &state);
+	    // skipahead is provided by curand
+	      
             N = curand_poisson (&state, GetSNRate(t - age_dev[gtid], dev_snr, snr_dt, time_sn_start, time_sn_end) * mass_dev[gtid] * dt);
-            states[gtid] = state;
+            // states[gtid] = state;
             prev_N[gtid] = N;
           }
           if (N != 0) {
@@ -521,10 +530,10 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
     direction = 1;
     if (G.Particles.n_local > 0) {
       hipLaunchKernelGGL(Cluster_Feedback_Kernel, ngrid, TPB_FEEDBACK, 0, 0,  G.Particles.n_local, G.Particles.partIDs_dev, G.Particles.pos_x_dev, G.Particles.pos_y_dev, G.Particles.pos_z_dev,
-         G.Particles.mass_dev, G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max,
-         G.H.dx, G.H.dy, G.H.dz, G.H.nx, G.H.ny, G.H.nz, G.H.n_ghost, G.H.t, G.H.dt, d_dti, d_info,
-         G.C.d_density, G.C.d_GasEnergy, G.C.d_Energy, G.C.d_momentum_x, G.C.d_momentum_y, G.C.d_momentum_z, gama, supernova::randStates, d_prev_dens, d_prev_N, direction,
-         dev_snr, snr_dt, time_sn_start, time_sn_end);
+			 G.Particles.mass_dev, G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max,
+			 G.H.dx, G.H.dy, G.H.dz, G.H.nx, G.H.ny, G.H.nz, G.H.n_ghost, G.H.t, G.H.dt, d_dti, d_info,
+			 G.C.d_density, G.C.d_GasEnergy, G.C.d_Energy, G.C.d_momentum_x, G.C.d_momentum_y, G.C.d_momentum_z, gama, supernova::randStates, d_prev_dens, d_prev_N, direction,
+			 dev_snr, snr_dt, time_sn_start, time_sn_end, G.H.n_step);
 
       CHECK(cudaMemcpy(&h_dti, d_dti, sizeof(Real), cudaMemcpyDeviceToHost));
     }
@@ -538,10 +547,10 @@ Real supernova::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis) {
       direction = -1;
       if (G.Particles.n_local > 0) {
         hipLaunchKernelGGL(Cluster_Feedback_Kernel, ngrid, TPB_FEEDBACK, 0, 0,  G.Particles.n_local, G.Particles.partIDs_dev, G.Particles.pos_x_dev, G.Particles.pos_y_dev, G.Particles.pos_z_dev,
-          G.Particles.mass_dev, G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max,
-          G.H.dx, G.H.dy, G.H.dz, G.H.nx, G.H.ny, G.H.nz, G.H.n_ghost, G.H.t, G.H.dt, d_dti, d_info,
-          G.C.d_density, G.C.d_GasEnergy, G.C.d_Energy, G.C.d_momentum_x, G.C.d_momentum_y, G.C.d_momentum_z, gama, supernova::randStates, d_prev_dens, d_prev_N, direction,
-          dev_snr, snr_dt, time_sn_start, time_sn_end);
+			   G.Particles.mass_dev, G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max,
+			   G.H.dx, G.H.dy, G.H.dz, G.H.nx, G.H.ny, G.H.nz, G.H.n_ghost, G.H.t, G.H.dt, d_dti, d_info,
+			   G.C.d_density, G.C.d_GasEnergy, G.C.d_Energy, G.C.d_momentum_x, G.C.d_momentum_y, G.C.d_momentum_z, gama, supernova::randStates, d_prev_dens, d_prev_N, direction,
+			   dev_snr, snr_dt, time_sn_start, time_sn_end, G.H.n_step);
 
         CHECK(cudaDeviceSynchronize());
       }
