@@ -14,6 +14,7 @@
 #endif  // HDF5
 #include "../grid/grid3D.h"
 #include "../io/io.h"
+#include "../utils/timing_functions.h" // provides ScopedTimer
 #ifdef MPI_CHOLLA
   #include "../mpi/mpi_routines.h"
 #endif  // MPI_CHOLLA
@@ -2228,6 +2229,11 @@ void Grid3D::Write_Slices_HDF5(hid_t file_id)
  *  \brief Read in grid data from an output file. */
 void Grid3D::Read_Grid(struct parameters P)
 {
+  //ScopedTimer("Read_Grid");
+  char filename[100];
+  char timestep[20];
+  int nfile = P.nfile;  // output step you want to read from
+
   // create the filename to read from
   // assumes your data is in the outdir specified in the input file
   // strcpy(filename, P.outdir);
@@ -2416,6 +2422,63 @@ void Grid3D::Read_Grid_Binary(FILE *fp)
 }
 
 #ifdef HDF5
+
+/* \brief After HDF5 reads data into a buffer, remap and write to grid buffer. */
+void Fill_Grid_From_HDF5_Buffer(int nx, int ny, int nz, int nx_real, int ny_real, int nz_real, int n_ghost, Real* hdf5_buffer, Real* grid_buffer)
+{
+  // Note: for 1D ny_real and nz_real are not used
+  // And for 2D nz_real is not used.
+  // This protects the magnetic case where ny_real/nz_real += 1
+  
+  int i, j, k, id, buf_id;
+  // 3D case
+  if (nx > 1 && ny > 1 && nz > 1) {
+    for (k = 0; k < nz_real; k++) {
+      for (j = 0; j < ny_real; j++) {
+	for (i = 0; i < nx_real; i++) {
+	  id              = (i + n_ghost) + (j + n_ghost) * nx + (k + n_ghost) * nx * ny;
+	  buf_id          = k + j * nz_real + i * nz_real * ny_real;
+	  grid_buffer[id] = hdf5_buffer[buf_id];
+	}
+      }
+    }
+    return;
+  }
+  
+  // 2D case
+  if (nx > 1 && ny > 1 && nz == 1) {
+    for (j = 0; j < ny_real; j++) {
+      for (i = 0; i < nx_real; i++) {
+	id              = (i + n_ghost) + (j + n_ghost) * nx;
+	buf_id          = j + i * ny_real;
+	grid_buffer[id] = hdf5_buffer[buf_id];
+      }
+    }
+    return;
+  }
+  
+  // 1D case
+  if (nx > 1 && ny == 1 && nz == 1) {
+    id = n_ghost;
+    memcpy(&grid_buffer[id], &hdf5_buffer[0], nx_real * sizeof(Real));
+    return;
+  }
+}
+
+void Read_Grid_HDF5_Field(hid_t file_id, Real* dataset_buffer, Header H, Real* grid_buffer, const char* name)
+{
+  Read_HDF5_Dataset(file_id, dataset_buffer, name);
+  Fill_Grid_From_HDF5_Buffer(H.nx, H.ny, H.nz, H.nx_real, H.ny_real, H.nz_real, H.n_ghost, dataset_buffer, grid_buffer);
+}
+
+void Read_Grid_HDF5_Field_Magnetic(hid_t file_id, Real* dataset_buffer, Header H, Real* grid_buffer, const char* name)
+{
+  // Magnetic has 1 more real cell, 1 fewer n_ghost on one side. 
+  Read_HDF5_Dataset(file_id, dataset_buffer, name);
+  Fill_Grid_From_HDF5_Buffer(H.nx, H.ny, H.nz, H.nx_real + 1, H.ny_real + 1, H.nz_real + 1, H.n_ghost - 1, dataset_buffer, grid_buffer);
+}
+
+
 /*! \fn void Read_Grid_HDF5(hid_t file_id)
  *  \brief Read in grid data from an hdf5 file. */
 void Grid3D::Read_Grid_HDF5(hid_t file_id, struct parameters P)
@@ -2432,9 +2495,13 @@ void Grid3D::Read_Grid_HDF5(hid_t file_id, struct parameters P)
   attribute_id = H5Aopen(file_id, "t", H5P_DEFAULT);
   status       = H5Aread(attribute_id, H5T_NATIVE_DOUBLE, &H.t);
   status       = H5Aclose(attribute_id);
+  /*
+  // Alwin: I don't think this is needed anymore because dt of the current state of cells is calculated for consistency and output was using previous timestep's H.dt
+  // This is because dti = Update_Grid, then output, then dt = 1/MPI_Allreduce(dti) in next step
   attribute_id = H5Aopen(file_id, "dt", H5P_DEFAULT);
   status       = H5Aread(attribute_id, H5T_NATIVE_DOUBLE, &H.dt);
   status       = H5Aclose(attribute_id);
+  */
   attribute_id = H5Aopen(file_id, "n_step", H5P_DEFAULT);
   status       = H5Aread(attribute_id, H5T_NATIVE_INT, &H.n_step);
   status       = H5Aclose(attribute_id);
