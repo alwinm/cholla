@@ -79,6 +79,7 @@ void Write_Message_To_Log_File(const char *message)
 /* Write Cholla Output Data */
 void WriteData(Grid3D &G, struct parameters P, int nfile)
 {
+  return;
   cudaMemcpy(G.C.density, G.C.device, G.H.n_fields * G.H.n_cells * sizeof(Real), cudaMemcpyDeviceToHost);
 
   chprintf("\nSaving Snapshot: %d \n", nfile);
