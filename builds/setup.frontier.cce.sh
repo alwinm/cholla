@@ -19,3 +19,5 @@ export ROCFFT_RTC_CACHE_PATH=/dev/null
 
 module load cray-mpich/8.1.25
 export LD_LIBRARY_PATH="${CRAY_LD_LIBRARY_PATH}:${LD_LIBRARY_PATH}"
+export MPICH_OFI_NIC_VERBOSE=1
+export MPICH_OFI_CXI_COUNTER_REPORT=2
