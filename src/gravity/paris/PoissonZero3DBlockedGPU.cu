@@ -166,12 +166,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[(((p * mq + q) * dip + i) * djq + j) * dk + k] = ub[((i + iLo) * dj + j + jLo) * dk + k];
         }
       });
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dip * djq * dk, MPI_DOUBLE, hb_, dip * djq * dk, MPI_DOUBLE, commK_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dip * djq * dk, MPI_DOUBLE, ub, dip * djq * dk, MPI_DOUBLE, commK_);
   #endif
   gpuFor(
@@ -217,12 +220,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[((qb * dip + i) * dkq + kb) * djq + j] = wb * ak - wa * bk;
         }
       });
+  CHECK(cudaDeviceSynchronize());  
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+    
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dip * dkq * djq, MPI_DOUBLE, hb_, dip * dkq * djq, MPI_DOUBLE, commJ_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dip * dkq * djq, MPI_DOUBLE, ub, dip * dkq * djq, MPI_DOUBLE, commJ_);
   #endif
   gpuFor(
@@ -267,12 +273,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[((pb * dkq + k) * djp + jb) * dip + i] = wb * aj - wa * bj;
         }
       });
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dkq * djp * dip, MPI_DOUBLE, hb_, dkq * djp * dip, MPI_DOUBLE, commI_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dkq * djp * dip, MPI_DOUBLE, ub, dkq * djp * dip, MPI_DOUBLE, commI_);
   #endif
   gpuFor(
@@ -389,12 +398,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[(((idb * mp + pb) * dkq + k) * dip + ib) * djp + j] = ai + bi;
         }
       });
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dkq * djp * dip, MPI_DOUBLE, hb_, dkq * djp * dip, MPI_DOUBLE, commI_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dkq * djp * dip, MPI_DOUBLE, ub, dkq * djp * dip, MPI_DOUBLE, commI_);
   #endif
   gpuFor(
@@ -447,12 +459,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[(((idb * mq + qb) * dip + i) * djq + jb) * dkq + k] = aj + bj;
         }
       });
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dip * djq * dkq, MPI_DOUBLE, hb_, dip * djq * dkq, MPI_DOUBLE, commJ_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dip * djq * dkq, MPI_DOUBLE, ub, dip * djq * dkq, MPI_DOUBLE, commJ_);
   #endif
   gpuFor(
@@ -503,12 +518,15 @@ void PoissonZero3DBlockedGPU::solve(const long bytes, double *const density, dou
           ua[((pqb * dip + i) * djq + j) * dk + kb] = divN * (ak + bk);
         }
       });
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   #ifndef MPI_GPU
   CHECK(cudaMemcpy(ha_, ua, bytes_, cudaMemcpyDeviceToHost));
   MPI_Alltoall(ha_, dip * djq * dk, MPI_DOUBLE, hb_, dip * djq * dk, MPI_DOUBLE, commK_);
   CHECK(cudaMemcpyAsync(ub, hb_, bytes_, cudaMemcpyHostToDevice, 0));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(ua, dip * djq * dk, MPI_DOUBLE, ub, dip * djq * dk, MPI_DOUBLE, commK_);
   #endif
   gpuFor(
