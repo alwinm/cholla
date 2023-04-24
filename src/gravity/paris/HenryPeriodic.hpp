@@ -121,7 +121,10 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
         const int ib = k + dk * (jj + dj * ii);
         a[ia]        = b[ib];
       });
-
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
+  
   // Redistribute into Z pencils
 
   const int countK = dip * djq * dk;
@@ -130,7 +133,6 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countK, MPI_DOUBLE, hb_, countK, MPI_DOUBLE, commK_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(a, countK, MPI_DOUBLE, b, countK, MPI_DOUBLE, commK_);
   #endif
 
@@ -170,6 +172,9 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
           }
         });
   }
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Redistribute for Y pencils
   const int countJ = 2 * dip * djq * dhq;
@@ -178,7 +183,6 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countJ, MPI_DOUBLE, hb_, countJ, MPI_DOUBLE, commJ_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(a, countJ, MPI_DOUBLE, b, countJ, MPI_DOUBLE, commJ_);
   #endif
 
@@ -219,6 +223,9 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
           }
         });
   }
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Redistribute for X pencils
   const int countI = 2 * dip * djp * dhq;
@@ -227,7 +234,6 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countI, MPI_DOUBLE, hb_, countI, MPI_DOUBLE, commI_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(a, countI, MPI_DOUBLE, b, countI, MPI_DOUBLE, commI_);
   #endif
 
@@ -287,6 +293,9 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
           }
         });
   }
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Redistribute for Y pencils
   #ifndef MPI_GPU
@@ -294,7 +303,6 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countI, MPI_DOUBLE, hb_, countI, MPI_DOUBLE, commI_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(a, countI, MPI_DOUBLE, b, countI, MPI_DOUBLE, commI_);
   #endif
 
@@ -335,6 +343,9 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
           }
         });
   }
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Redistribute in Z pencils
   #ifndef MPI_GPU
@@ -342,7 +353,6 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countJ, MPI_DOUBLE, hb_, countJ, MPI_DOUBLE, commJ_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
   MPI_Alltoall(a, countJ, MPI_DOUBLE, b, countJ, MPI_DOUBLE, commJ_);
   #endif
 
@@ -382,6 +392,9 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
           }
         });
   }
+  CHECK(cudaDeviceSynchronize());
+  
+  MPI_Barrier(MPI_COMM_WORLD);
 
   // Redistribute for 3D blocks
   #ifndef MPI_GPU
@@ -389,7 +402,7 @@ void HenryPeriodic::filter(const size_t bytes, double *const before, double *con
   MPI_Alltoall(ha_, countK, MPI_DOUBLE, hb_, countK, MPI_DOUBLE, commK_);
   CHECK(cudaMemcpy(b, hb_, bytes, cudaMemcpyHostToDevice));
   #else
-  CHECK(cudaDeviceSynchronize());
+  
   MPI_Alltoall(a, countK, MPI_DOUBLE, b, countK, MPI_DOUBLE, commK_);
   #endif
 
