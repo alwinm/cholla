@@ -23,6 +23,14 @@
     #include "../riemann_solvers/hllc_cuda.h"
     #include "../riemann_solvers/roe_cuda.h"
     #include "../utils/gpu.hpp"
+    #include "../utils/debug_utilities.hpp"
+
+void check_for_null_pointer(Real* pointer, const char* name) {
+  if (pointer == NULL) {
+    chprintf("%s was NULL\n", name);
+  }
+  chprintf("%s address is %p\n", name, pointer);
+}
 
 void Simple_Algorithm_3D_CUDA(Real *d_conserved, Real *d_grav_potential, int nx, int ny, int nz, int x_off, int y_off,
                               int z_off, int n_ghost, Real dx, Real dy, Real dz, Real xbound, Real ybound, Real zbound,
@@ -48,23 +56,50 @@ void Simple_Algorithm_3D_CUDA(Real *d_conserved, Real *d_grav_potential, int nx,
     CudaSafeCall(cudaMemGetInfo(&global_free, &global_total));
 
     // allocate memory on the GPU
+    size_t allocation_size = (size_t) n_fields * (size_t) n_cells * sizeof(Real);
+    double gigabyte = 1UL << 30 ;// 2^30
     chprintf(
         " Allocating Hydro Memory: nfields: %d   n_cells: %d   nx: %d  ny: %d  "
         "nz: %d \n",
         n_fields, n_cells, nx, ny, nz);
-    chprintf(" Memory needed: %f GB    Free: %f GB    Total:  %f GB  \n", n_fields * n_cells * sizeof(Real) / 1e9,
-             global_free / 1e9, global_total / 1e9);
+    chprintf(" Memory needed: %f GB    Free: %f GB    Total:  %f GB  \n", (double) allocation_size / gigabyte,
+             (double) global_free / gigabyte, (double) global_total / gigabyte);
     dev_conserved = d_conserved;
-    CudaSafeCall(cudaMalloc((void **)&Q_Lx, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&Q_Rx, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&Q_Ly, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&Q_Ry, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&Q_Lz, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&Q_Rz, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&F_x, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&F_y, n_fields * n_cells * sizeof(Real)));
-    CudaSafeCall(cudaMalloc((void **)&F_z, n_fields * n_cells * sizeof(Real)));
+    print_memory_usage();
+    CudaSafeCall(cudaMalloc((void **)&Q_Lx, allocation_size));
+    check_for_null_pointer(Q_Lx, "Q_Lx");
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&Q_Rx, allocation_size));
+    check_for_null_pointer(Q_Rx, "Q_Rx");    
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&Q_Ly, allocation_size));
+    check_for_null_pointer(Q_Ly, "Q_Ly");    
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&Q_Ry, allocation_size));
+    check_for_null_pointer(Q_Ry, "Q_Ry");        
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&Q_Lz, allocation_size));
+    check_for_null_pointer(Q_Lz, "Q_Lz");        
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&Q_Rz, allocation_size));
+    check_for_null_pointer(Q_Rz, "Q_Rz");        
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&F_x, allocation_size));
+    check_for_null_pointer(F_x, "F_x");        
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&F_y, allocation_size));
+    check_for_null_pointer(F_y, "F_y");            
+    print_memory_usage();    
+    CudaSafeCall(cudaMalloc((void **)&F_z, allocation_size));
+    check_for_null_pointer(F_z, "F_z");                
+    print_memory_usage();    
 
+
+    if (F_z == NULL) {
+      chprintf("F_z was NULL");
+    }
+    chprintf("F_z address: %p ", F_z);
+    
     #if defined(GRAVITY)
     // CudaSafeCall( cudaMalloc((void**)&dev_grav_potential,
     // n_cells*sizeof(Real)) );

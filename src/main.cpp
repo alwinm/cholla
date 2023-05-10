@@ -15,6 +15,8 @@
 #include "grid/grid3D.h"
 #include "io/io.h"
 #include "utils/error_handling.h"
+#include "utils/debug_utilities.hpp"
+
 #ifdef SUPERNOVA
   #include "particles/supernova.h"
   #ifdef ANALYSIS
@@ -191,6 +193,8 @@ int main(int argc, char *argv[])
   chprintf("Ratio of specific heats gamma = %f\n", gama);
   chprintf("Nstep = %d  Simulation time = %f\n", G.H.n_step, G.H.t);
 
+
+  
 #ifdef OUTPUT
   if (strcmp(P.init, "Read_Grid") != 0 || G.H.Output_Now) {
     // write the initial conditions to file
@@ -231,6 +235,7 @@ int main(int argc, char *argv[])
   dti = G.Calc_Inverse_Timestep();
 
   while (G.H.t < P.tout) {
+    print_memory_usage();    
 // get the start time
 #ifdef CPU_TIME
     G.Timer.Total.Start();
