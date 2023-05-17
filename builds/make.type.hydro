@@ -25,5 +25,5 @@ DFLAGS    += -DTEMPERATURE_FLOOR
 
 # Select output format
 # Can also add -DSLICES and -DPROJECTIONS
-OUTPUT    ?=  -DOUTPUT -DHDF5
+OUTPUT    ?=  -DOUTPUT -DHDF5 -DSLICES
 DFLAGS    += $(OUTPUT)

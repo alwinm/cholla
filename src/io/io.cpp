@@ -1906,21 +1906,21 @@ void Grid3D::Write_Rotated_Projection_HDF5(hid_t file_id)
 #ifdef HDF5
 
 void Write_Slices_HDF5_Field(Header H, hid_t file_id, std::vector<Real> host_hdf5_vector,
-                             cuda_utilities::DeviceVector<Real> device_hdf5_vector, Real *device_source,
+                             cuda_utilities::DeviceVector<Real> device_hdf5_vector, Real *device_source_buffer,
                              const char *name)
 {
   // Slice indices all include ghost cells
   // In non-MPI case, nx = nx_real + 2*n_ghost, so slice = (nx_real + 2*n_ghost) = (nx_real)/2 + n_ghost
   // In MPI case, nx_local = nx_global/ nproc_x, nx_local_start = ix * nx_local
 
-  int xslice, yslice, zslice;
-  xslice = H.nx / 2;
-  yslice = H.ny / 2;
-  zslice = H.nz / 2;
+  int x_slice, y_slice, z_slice;
+  x_slice = H.nx / 2;
+  y_slice = H.ny / 2;
+  z_slice = H.nz / 2;
   #ifdef MPI_CHOLLA
-  xslice = nx_global / 2 - nx_local_start + H.n_ghost;
-  yslice = ny_global / 2 - ny_local_start + H.n_ghost;
-  zslice = nz_global / 2 - nz_local_start + H.n_ghost;
+  x_slice = nx_global / 2 - nx_local_start + H.n_ghost;
+  y_slice = ny_global / 2 - ny_local_start + H.n_ghost;
+  z_slice = nz_global / 2 - nz_local_start + H.n_ghost;
   #endif
 
   bool yz_check = true;
@@ -1928,27 +1928,27 @@ void Write_Slices_HDF5_Field(Header H, hid_t file_id, std::vector<Real> host_hdf
   bool xy_check = true;
 
   #ifdef MPI_CHOLLA
-  yz_check = (xslice >= H.n_ghost) && (x_slice < nx_local + H.n_ghost);
-  xz_check = (yslice >= H.n_ghost) && (y_slice < ny_local + H.n_ghost);
-  xy_check = (zslice >= H.n_ghost) && (z_slice < nz_local + H.n_ghost);
+  yz_check = (x_slice >= H.n_ghost) && (x_slice < nx_local + H.n_ghost);
+  xz_check = (y_slice >= H.n_ghost) && (y_slice < ny_local + H.n_ghost);
+  xy_check = (z_slice >= H.n_ghost) && (z_slice < nz_local + H.n_ghost);
   #endif
 
   herr_t status;
   hsize_t dims[2];
 
   // YZ dims
-  dims[0]               = ny_dset;
-  dims[1]               = nz_dset;
+  dims[0]               = H.ny_real;
+  dims[1]               = H.nz_real;
   hid_t dataspace_id_yz = H5Screate_simple(2, dims, NULL);
 
   // XZ dims
-  dims[0]               = nx_dset;
-  dims[1]               = nz_dset;
+  dims[0]               = H.nx_real;
+  dims[1]               = H.nz_real;
   hid_t dataspace_id_xz = H5Screate_simple(2, dims, NULL);
 
   // XY dims
-  dims[0]               = nx_dset;
-  dims[1]               = ny_dset;
+  dims[0]               = H.nx_real;
+  dims[1]               = H.ny_real;
   hid_t dataspace_id_xy = H5Screate_simple(2, dims, NULL);
 
   // yz
@@ -1964,7 +1964,7 @@ void Write_Slices_HDF5_Field(Header H, hid_t file_id, std::vector<Real> host_hdf
   if (xz_check) {
     std::string name_xz = std::string(name) + std::string("_xz");
     // Array of shape (nx_real, 1, nz_real) starting at (n_ghost, y_slice, n_ghost)
-    Device_To_HDF5_Buffer(H.nx_real, 1, H.nz_real, H.n_ghost, yslice, H.n_ghost, H.nx, H.ny, host_hdf5_vector.data(),
+    Device_To_HDF5_Buffer(H.nx_real, 1, H.nz_real, H.n_ghost, y_slice, H.n_ghost, H.nx, H.ny, host_hdf5_vector.data(),
                           device_hdf5_vector.data(), device_source_buffer);
     status = Write_HDF5_Dataset(file_id, dataspace_id_xz, host_hdf5_vector.data(), name_xz.data());
   }
@@ -1973,7 +1973,7 @@ void Write_Slices_HDF5_Field(Header H, hid_t file_id, std::vector<Real> host_hdf
   if (xy_check) {
     std::string name_xy = std::string(name) + std::string("_xy");
     // Array of shape (nx_real, ny_real, 1) starting at (n_ghost, n_ghost, z_slice)
-    Device_To_HDF5_Buffer(H.nx_real, H.ny_real, 1, H.n_ghost, H.n_ghost, zslice, H.nx, H.ny, host_hdf5_vector.data(),
+    Device_To_HDF5_Buffer(H.nx_real, H.ny_real, 1, H.n_ghost, H.n_ghost, z_slice, H.nx, H.ny, host_hdf5_vector.data(),
                           device_hdf5_vector.data(), device_source_buffer);
     status = Write_HDF5_Dataset(file_id, dataspace_id_xy, host_hdf5_vector.data(), name_xy.data());
   }
@@ -1988,6 +1988,7 @@ void Write_Slices_HDF5_Field(Header H, hid_t file_id, std::vector<Real> host_hdf
      at the current simulation time. */
 void Grid3D::Write_Slices_HDF5(hid_t file_id)
 {
+  
   if (H.nx == 1 || H.ny == 1 || H.nz == 1) {
     chprintf("Slice write only works for 3D data.\n");
     return;
