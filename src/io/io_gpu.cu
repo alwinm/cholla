@@ -13,6 +13,50 @@
 // also has the same size nx ny nz For the magnetic field case, a different
 // nx_real+1 ny_real+1 nz_real+1 n_ghost-1 are provided as inputs.
 
+/* Notes on slicing:
+
+  Demonstrating for all cases: hdf5_id = k + j * hdf5_nk + i * hdf5_nj * hdf5_nk
+  xy case j + i * hdf5_nj = 0 + j + i * hdf5_nj * 1 = k + j * hdf5_nk + i * hdf5_nj * hdf5_nk
+  xz case k + i * hdf5_nk = k + (0) + i * (1) * hdf5_nk = k + j * hdf5_nk + i * hdf5_nj * hdf5_nk
+  yz case k + j * hdf5_nk = k + j * hdf5_nk + 0 = k + j * hdf5_nk + i * hdf5_nj * hdf5_nk;
+
+
+ */
+
+__global__ void Device_To_HDF5_Buffer_Kernel(int hdf5_ni, int hdf5_nj, int hdf5_nk, int source_offset_i,
+                                             int source_offset_j, int source_offset_k, int source_ni, int source_nj,
+                                             Real* device_hdf5_buffer, Real* device_source_buffer)
+{
+  int i, j, k;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  // GPU operates on block of hdf5_ni, hdf5_nj, hdf5_nk
+  // 2 of which will be from nx_real, ny_real, nz_real
+
+  cuda_utilities::compute3DIndices(tid, hdf5_ni, hdf5_nj, i, j, k);
+  if (k >= hdf5_nk) {
+    return;
+  }
+
+  int source_id =
+      (i + source_offset_i) + (j + source_offset_j) * source_ni + (k + source_offset_k) * source_ni * source_nj;
+  int hdf5_id = i * hdf5_nj * hdf5_nk + j * hdf5_nk + k;
+
+  device_hdf5_buffer[hdf5_id] = device_source_buffer[source_id];
+}
+
+void Device_To_HDF5_Buffer(int hdf5_ni, int hdf5_nj, int hdf5_nk, int source_offset_i, int source_offset_j,
+                           int source_offset_k, int source_ni, int source_nj, Real* host_hdf5_buffer,
+                           Real* device_hdf5_buffer, Real* device_source_buffer)
+{
+  dim3 dim1dGrid((hdf5_ni * hdf5_nj * hdf5_nk - 1) / TPB + 1, 1, 1);
+  dim3 dim1dBlock(TPB, 1, 1);
+  hipLaunchKernelGGL(Device_To_HDF5_Buffer_Kernel, dim1dGrid, dim1dBlock, 0, 0, hdf5_ni, hdf5_nj, hdf5_nk,
+                     source_offset_i, source_offset_j, source_offset_k, source_ni, source_nj, device_hdf5_buffer,
+                     device_source_buffer);
+  CudaSafeCall(cudaMemcpy(host_hdf5_buffer, device_hdf5_buffer, hdf5_ni * hdf5_nj * hdf5_nk * sizeof(Real),
+                          cudaMemcpyDeviceToHost));
+}
+
 // Copy Real (non-ghost) cells from source to a double destination (for writing
 // HDF5 in double precision)
 __global__ void CopyReal3D_GPU_Kernel(int nx, int ny, int nx_real, int ny_real, int nz_real, int n_ghost,
