@@ -456,7 +456,7 @@ __global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *de
   #ifdef DENSITY_FLOOR
     if (dev_conserved_half[id] < density_floor) {
       dens_0 = dev_conserved_half[id];
-      printf("###Thread density change  %f -> %f \n", dens_0, density_floor);
+      //kernel_printf("###Thread density change  %f -> %f \n", dens_0, density_floor);
       dev_conserved_half[id] = density_floor;
       // Scale the conserved values to the new density
       dev_conserved_half[1 * n_cells + id] *= (density_floor / dens_0);

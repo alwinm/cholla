@@ -18,6 +18,8 @@
 cudaTextureObject_t coolTexObj = 0;
 cudaTextureObject_t heatTexObj = 0;
 
+__device__ Real Photoelectric_Heating(Real n, Real T, Real n_av);
+
 void Cooling_Update(Real *dev_conserved, int nx, int ny, int nz, int n_ghost, int n_fields, Real dt, Real gamma)
 {
   int n_cells = nx * ny * nz;
@@ -58,8 +60,8 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
   }
 
   Real d, E;
-  Real n, T, T_init;
-  Real del_T, dt_sub;
+  Real n, T;
+  Real del_T;
   Real mu;    // mean molecular weight
   Real cool;  // cooling rate per volume, erg/s/cm^3
   // #ifndef DE
@@ -96,7 +98,7 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
     p  = fmax(p, (Real)TINY_NUMBER);
     // #endif
     #ifdef DE
-    ge = dev_conserved[(n_fields - 1) * n_cells + id] / d;
+    ge = dev_conserved[(n_fields - 1) * n_cells + id];
     ge = fmax(ge, (Real)TINY_NUMBER);
     #endif
 
@@ -104,55 +106,53 @@ __global__ void cooling_kernel(Real *dev_conserved, int nx, int ny, int nz, int 
     n = d * DENSITY_UNIT / (mu * MP);
 
     // calculate the temperature of the gas
-    T_init = p * PRESSURE_UNIT / (n * KB);
+
     #ifdef DE
-    T_init = d * ge * (gamma - 1.0) * PRESSURE_UNIT / (n * KB);
+    const Real T_init = ge * (gamma - 1.0) * PRESSURE_UNIT / (n * KB);
+    #else
+    const Real T_init = p * PRESSURE_UNIT / (n * KB);
     #endif
+    const Real dt_init = dt;
 
     // calculate cooling rate per volume
     T = T_init;
-    // call the cooling function
-    #ifdef CLOUDY_COOL
-    cool = Cloudy_cool(n, T, coolTexObj, heatTexObj);
-    #else
-    cool = CIE_cool(n, T);
-    #endif
 
-    // calculate change in temperature given dt
-    del_T = cool * dt * TIME_UNIT * (gamma - 1.0) / (n * KB);
-
-    // limit change in temperature to 1%
-    while (fabs(del_T) / T > 0.01) {
-      // what dt gives del_T = 0.01*T?
-      dt_sub = 0.01 * T * n * KB / (fabs(cool) * TIME_UNIT * (gamma - 1.0));
-      // apply that dt
-      T -= cool * dt_sub * TIME_UNIT * (gamma - 1.0) / (n * KB);
-      // how much time is left from the original timestep?
-      dt -= dt_sub;
-    // calculate cooling again
+    while (true) {
     #ifdef CLOUDY_COOL
       cool = Cloudy_cool(n, T, coolTexObj, heatTexObj);
+      cool -= Photoelectric_Heating(n, T, 100);
     #else
       cool = CIE_cool(n, T);
     #endif
-      // calculate new change in temperature
       del_T = cool * dt * TIME_UNIT * (gamma - 1.0) / (n * KB);
+      if (fabs(del_T) > 0.01 * T) {
+	// Evolve T and dt so T changes by 1%
+	dt -=    dt * 0.01 * T / fabs(del_T);
+	T  -= del_T * 0.01 * T / fabs(del_T);
+      } else {
+	T  -= del_T;
+	break;
+      }
     }
 
-    // calculate final temperature
-    T -= del_T;
+    const Real T_final = T;
+
+    // If the temperature has changed by a lot, whine vehemently
+    if ((T_init / T_final > 1e3) || (T_final / T_init > 1e3)) {
+      kernel_printf("Cooling Cuda Large Temperature Change whine: | T_init (K): %e | T_final (K): %e | dt (cholla): %e | n (cgs): %e \n", T_init, T_final, dt_init, n);
+    }
 
     // adjust value of energy based on total change in temperature
-    del_T = T_init - T;  // total change in T
-    E -= n * KB * del_T / ((gamma - 1.0) * ENERGY_UNIT);
+    const Real delta_E = n * KB * (T_final - T_init) / ((gamma - 1.0) * ENERGY_UNIT);
+    E += delta_E;
     #ifdef DE
-    ge -= KB * del_T / (mu * MP * (gamma - 1.0) * SP_ENERGY_UNIT);
+    ge += delta_E;
     #endif
 
     // and send back from kernel
     dev_conserved[4 * n_cells + id] = E;
     #ifdef DE
-    dev_conserved[(n_fields - 1) * n_cells + id] = d * ge;
+    dev_conserved[(n_fields - 1) * n_cells + id] = ge;
     #endif
   }
 }
@@ -316,13 +316,11 @@ __device__ Real CIE_cool(Real n, Real T)
           tables at z = 0 with solar metallicity and an HM05 UV background. */
 __device__ Real Cloudy_cool(Real n, Real T, cudaTextureObject_t coolTexObj, cudaTextureObject_t heatTexObj)
 {
-  Real lambda = 0.0;  // cooling rate, erg s^-1 cm^3
-  Real H      = 0.0;  // heating rate, erg s^-1 cm^3
-  Real cool   = 0.0;  // cooling per unit volume, erg /s / cm^3
-  // the following two values are for photoelectric heating
-  // based on description given in Kim et al. 2015.
-  Real n_av   = 100.0; //TODO mean density in the sim volume, cm^3 (make this an argument?)
-  Real H_pe   = 0.0;
+  Real lambda = 0.0;  // log cooling rate, erg s^-1 cm^3
+  Real cooling   = 0.0;  // cooling per unit volume, erg /s / cm^3
+  Real heating   = 0.0;  // cooling per unit volume, erg /s / cm^3
+
+  // To keep texture code simple, we use floats (which have built-in support) as opposed to doubles (which would require casting)
   float log_n, log_T;
   log_n = log10(n);
   log_T = log10(T);
@@ -330,39 +328,42 @@ __device__ Real Cloudy_cool(Real n, Real T, cudaTextureObject_t coolTexObj, cuda
   // remap coordinates for texture
   // remapped = (input - TABLE_MIN_VALUE)*(1/TABLE_SPACING)
   // remapped = (input - TABLE_MIN_VALUE)*(NUM_CELLS_PER_DECADE)
-  log_T = (log_T - 1.0) * 10;
-  log_n = (log_n + 6.0) * 10;
+  const Real remap_log_T = (log_T - 1.0) * 10;
+  const Real remap_log_n = (log_n + 6.0) * 10;
 
   // Note: although the cloudy table columns are n,T,L,H , T is the fastest
   // variable so it is treated as "x" This is why the Texture calls are T first,
-  // then n: Bilinear_Texture(tex, log_T, log_n)
+  // then n: Bilinear_Texture(tex, remap_log_T, remap_log_n)
 
   // cloudy cooling tables cut off at 10^9 K, use the CIE analytic fit above
   // this temp.
   if (log10(T) > 9.0) {
     lambda = 0.45 * log10(T) - 26.065;
-  } else if (log10(T) >= 1.0) {  // don't cool below 10 K
-    lambda = Bilinear_Texture(coolTexObj, log_T, log_n);
-    H = Bilinear_Texture(heatTexObj, log_T, log_n);
-  }
-
-  // apply photoelectric heating under 10,000 K
-  if (log10(T) < 4.0) {
-    H_pe = n_av * 1.0e-26;
-  }
-
-  // cooling rate per unit volume
-  if (log10(T) > 9.0) {
-    cool = n * n * pow(10, lambda);
-  } else if (log10(T) >= 4.0) {
-    cool = n * n * (pow(10, lambda) - pow(10, H));
+  } else if (log10(T) >= 1.0) {
+    lambda = Bilinear_Texture(coolTexObj, remap_log_T, remap_log_n);
+    const Real H = Bilinear_Texture(heatTexObj, remap_log_T, remap_log_n);
+    heating = pow(10, H);
   } else {
-    cool = n * (n * (pow(10, lambda) - pow(10, H)) - H_pe);
+    // Do nothing below 10 K
+    return 0.0;
   }
-  // printf("DEBUG Cloudy L350: %.17e\n",cool);
-  return cool;
+
+  cooling = pow(10, lambda);
+  return n * n * (cooling - heating);
 }
     #endif  // CLOUDY_COOL
+
+__device__ Real Photoelectric_Heating(Real n, Real T, Real n_av)
+{
+// Photoelectric heating based on description given in Kim et al. 2015
+// n_av is mean density in the sim volume, cm^-3
+// Returns a positive value, expect sign conversion elsewhere for cooling
+  if (T < 1e4) {
+    return n * n_av * 1.0e-26;
+  } else {
+    return 0.0;
+  }
+}
 
   #endif  // COOLING_GPU
 #endif    // CUDA

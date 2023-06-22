@@ -1159,19 +1159,25 @@ __device__ void Average_Cell_All_Fields(int i, int j, int k, int nx, int ny, int
                                         Real *conserved)
 {
   // Average Density
-  Average_Cell_Single_Field(0, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real density = Average_Cell_Single_Field(0, i, j, k, nx, ny, nz, ncells, conserved);
   // Average Momentum_x
-  Average_Cell_Single_Field(1, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real momen_x = Average_Cell_Single_Field(1, i, j, k, nx, ny, nz, ncells, conserved);
   // Average Momentum_y
-  Average_Cell_Single_Field(2, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real momen_y = Average_Cell_Single_Field(2, i, j, k, nx, ny, nz, ncells, conserved);
   // Average Momentum_z
-  Average_Cell_Single_Field(3, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real momen_z = Average_Cell_Single_Field(3, i, j, k, nx, ny, nz, ncells, conserved);
   // Average Energy
-  Average_Cell_Single_Field(4, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real energie = Average_Cell_Single_Field(4, i, j, k, nx, ny, nz, ncells, conserved);
 
   #ifdef DE
   // Average GasEnergy
-  Average_Cell_Single_Field(n_fields - 1, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real old_ge = Average_Cell_Single_Field(n_fields - 1, i, j, k, nx, ny, nz, ncells, conserved);
+  const Real new_ge = energie - (momen_x * momen_x + momen_y * momen_y + momen_z * momen_z)/(2*density);
+  int id = i + j*nx + k*nx*ny;
+  conserved[(n_fields - 1) * ncells + id] = new_ge;
+  kernel_printf("Average Slow Cells EXPERIMENT: | old_ge: %g | new_ge: %g | \n", old_ge, new_ge);
+
+
   #endif  // DE
 }
 
