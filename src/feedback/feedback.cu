@@ -1279,7 +1279,12 @@ __global__ void Set_Ave_Density_Kernel(
       Real n_0 = GetAverageNumberDensity_CGS(density, indx_x, indx_y, indx_z,
                                              nx_g, ny_g, n_ghost);
       Real shell_radius = feedback::R_SH * pow(n_0, -0.46) * pow(N, 0.29);
+
       bool is_resolved = 3 * max(dx, max(dy, dz)) <= shell_radius;
+
+      #ifdef FEEDBACK_RESOLVED_ONLY
+      is_resolved = true;
+      #endif
 
       // resolved SN feedback does not average densities.
       if (!is_resolved && N > 0) {
