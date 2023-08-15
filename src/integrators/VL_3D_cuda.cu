@@ -30,6 +30,8 @@
   #include "../utils/gpu.hpp"
   #include "../utils/hydro_utilities.h"
 
+void Check_For_Extreme_Temperature(Real* dev_conserved, int n_cells, Real gamma, Real lower_limit, Real upper_limit, int marker);
+
 __global__ void Update_Conserved_Variables_3D_half(Real *dev_conserved, Real *dev_conserved_half, Real *dev_F_x,
                                                    Real *dev_F_y, Real *dev_F_z, int nx, int ny, int nz, int n_ghost,
                                                    Real dx, Real dy, Real dz, Real dt, Real gamma, int n_fields,
@@ -308,6 +310,7 @@ void VL_Algorithm_3D_CUDA(Real *d_conserved, Real *d_grav_potential, int nx, int
                      zbound, dt, gama, n_fields, density_floor, dev_grav_potential);
   CudaCheckError();
 
+
   #ifdef MHD
   // Update the magnetic fields
   hipLaunchKernelGGL(mhd::Update_Magnetic_Field_3D, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, dev_conserved,
@@ -315,12 +318,15 @@ void VL_Algorithm_3D_CUDA(Real *d_conserved, Real *d_grav_potential, int nx, int
   CudaCheckError();
   #endif  // MHD
 
+
   #ifdef DE
   hipLaunchKernelGGL(Select_Internal_Energy_3D, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, nx, ny, nz, n_ghost,
                      n_fields);
   hipLaunchKernelGGL(Sync_Energies_3D, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, nx, ny, nz, n_ghost, gama, n_fields);
   CudaCheckError();
   #endif  // DE
+
+  //Check_For_Extreme_Temperature(dev_conserved, n_cells, gama, 10.0, 1e11, 102);
 
   #ifdef TEMPERATURE_FLOOR
   hipLaunchKernelGGL(Apply_Temperature_Floor, dim1dGrid, dim1dBlock, 0, 0, dev_conserved, nx, ny, nz, n_ghost, n_fields,

@@ -28,7 +28,7 @@
 
   // the starburst 99 total stellar mass input
   // stellar wind momentum fluxes and SN rates
-  // must be divided by this to get per solar 
+  // must be divided by this to get per solar
   // mass values.
   #define S_99_TOTAL_MASS 1e6
 
@@ -96,7 +96,7 @@ inline __device__ Real d_fr(int i, Real dx)
 }
 
 
-inline __device__ bool Particle_Is_Alone(Real* pos_x_dev, Real* pos_y_dev, 
+inline __device__ bool Particle_Is_Alone(Real* pos_x_dev, Real* pos_y_dev,
                     Real* pos_z_dev, part_int_t n_local, int gtid, Real dx)
 {
   Real x0 = pos_x_dev[gtid];
@@ -214,7 +214,7 @@ void feedback::initState(struct parameters* P)
  * @brief
  * Read in Stellar wind data from Starburst 99. If no file exists, assume a
  * constant rate.
- * 
+ *
  *
  * @param P pointer to parameters struct. Passes in starburst 99 filepath
  */
@@ -226,33 +226,33 @@ void feedback::initState(struct parameters* P)
      chprintf("must specify a stellar wind file.\n");
      exit(-1);
    }
- 
+
    chprintf("Specified a stellar wind filename %s.\n", sw_filename.data());
- 
+
    // read in array of supernova rate values.
    std::ifstream sw_in(sw_filename);
    if (!sw_in.is_open()) {
      chprintf("ERROR: couldn't read stellar wind file.\n");
      exit(-1);
    }
- 
+
    std::vector<Real> sw_time;
    std::vector<Real> sw_p;
    std::vector<Real> sw_e;
- 
+
    const int N_HEADER_LINES = 7;    // S'99 has 7 rows of header information
    const int COL_TIME       = 0;
    const int COL_POWER      = 1;
    const int COL_ALL_P_FLUX = 7;
-  
+
    const char* s99_delim = " ";  // S'99 data separator
    std::string line;
    int line_counter = 0;
- 
+
    while (sw_in.good()) {
      std::getline(sw_in, line);
      if (line_counter++ < N_HEADER_LINES) continue;  // skip header processing
- 
+
      int i = 0;
      char* data = strtok(line.data(), s99_delim);
      while (data != nullptr) {
@@ -268,7 +268,7 @@ void feedback::initState(struct parameters* P)
       i++;
      }
    }
- 
+
    time_sw_end   = sw_time[sw_time.size() - 1];
    time_sw_start = sw_time[0];
    // the following is the time interval between data points
@@ -279,7 +279,7 @@ void feedback::initState(struct parameters* P)
    CHECK(cudaMalloc((void**)&dev_sw_p, sw_p.size() * sizeof(Real)));
    CHECK(cudaMemcpy(dev_sw_p, sw_p.data(), sw_p.size() * sizeof(Real),
                     cudaMemcpyHostToDevice));
- 
+
    CHECK(cudaMalloc((void**)&dev_sw_e, sw_e.size() * sizeof(Real)));
    CHECK(cudaMemcpy(dev_sw_e, sw_e.data(), sw_e.size() * sizeof(Real),
                     cudaMemcpyHostToDevice));
@@ -295,7 +295,7 @@ void feedback::initState(struct parameters* P)
 
  /**
   * @brief Get the Starburst 99 stellar wind momentum flux per solar mass.
-  * 
+  *
   * @param t cluster age in kyr
   * @param dev_sw_p device array of log base 10 momentum flux values in dynes.
   * @param sw_dt time interval between table data points in kyr.
@@ -317,7 +317,7 @@ __device__ Real GetWindFlux(Real t, Real* dev_sw_p, Real sw_dt, Real t_start,
 
 /**
  * @brief Get the Starburst 99 stellar wind emitted power per solar mass.
- * 
+ *
  * @param t cluster age in kyr
  * @param dev_sw_e device array of log base 10 power (erg/s).
  * @param sw_dt time interval between table data points in kyr.
@@ -329,7 +329,7 @@ __device__ Real GetWindFlux(Real t, Real* dev_sw_p, Real sw_dt, Real t_start,
    Real t_end)
 {
   if (t < t_start || t >= t_end) return 0;
-  
+
   int index = (int)((t - t_start) / sw_dt);
   Real log_e = dev_sw_e[index] +
     (t - index * sw_dt) * (dev_sw_e[index + 1] - dev_sw_e[index]) / sw_dt;
@@ -342,21 +342,21 @@ __device__ Real GetWindFlux(Real t, Real* dev_sw_p, Real sw_dt, Real t_start,
 /**
  * @brief Get the mass flux associated with stellar wind momentum flux
  *        and stellar wind power scaled per cluster mass.
- * 
- * @param flux 
+ *
+ * @param flux
  * @return mass flux in g/s per solar mass
  */
- __device__ Real GetWindMass(Real flux, Real power) 
+ __device__ Real GetWindMass(Real flux, Real power)
 {
   if (flux <= 0 || power <= 0) return 0;
   return flux * flux / power / 2;
 }
- 
+
 /**
  * @brief returns SNR from starburst 99 (or default analytical rate).
- *        Time is in kyr.  Does a basic interpolation of S'99 table 
+ *        Time is in kyr.  Does a basic interpolation of S'99 table
  *        values.
- * 
+ *
  * @param t   The cluster age.
  * @param dev_snr  device array with rate info
  * @param snr_dt  time interval between table data.  Constant value.
@@ -378,17 +378,17 @@ __device__ Real GetSNRate(Real t, Real* dev_snr, Real snr_dt, Real t_start,
 
 /**
  * @brief Get an actual number of SNe given the expected number.
- * Both the simulation step number and cluster ID is used to 
+ * Both the simulation step number and cluster ID is used to
  * set the state of the random number generator in a unique and
  * deterministic way.
- * 
+ *
  * @param ave_num_sn expected number of SN, based on cluster
  * age, mass and time step.
  * @param n_step sim step number
- * @param cluster_id 
- * @return number of supernovae 
+ * @param cluster_id
+ * @return number of supernovae
  */
-inline __device__ int GetNumberOfSNeForCluster(Real ave_num_sn, int n_step, 
+inline __device__ int GetNumberOfSNeForCluster(Real ave_num_sn, int n_step,
                                                part_int_t cluster_id)
 {
   feedback_prng_t state;
@@ -423,7 +423,9 @@ __device__ Real Apply_Resolved_SN(Real pos_x, Real pos_y, Real pos_z,
   Real* momentum_y = &conserved_device[n_cells*grid_enum::momentum_y];
   Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];
   Real* energy     = &conserved_device[n_cells*grid_enum::Energy];
-  Real* gasEnergy  = &conserved_device[n_cells*grid_enum::GasEnergy];  
+  #ifdef DE
+  Real* gasEnergy  = &conserved_device[n_cells*grid_enum::GasEnergy];
+  #endif
 
   Real local_dti = 0;
 
@@ -436,24 +438,32 @@ __device__ Real Apply_Resolved_SN(Real pos_x, Real pos_y, Real pos_z,
         Real x_frac = i * (1 - delta_x) + (1 - i) * delta_x;
         Real y_frac = j * (1 - delta_y) + (1 - j) * delta_y;
         Real z_frac = k * (1 - delta_z) + (1 - k) * delta_z;
-
+	
+	if (x_frac * y_frac * z_frac * feedback_energy < 0) {
+	  kernel_printf("WARNING: negative feedback energy\n");
+	}
+	
         atomicAdd(&density[indx],
           x_frac * y_frac * z_frac * feedback_density);
+	
+	#ifdef DE
         atomicAdd(&gasEnergy[indx],
           x_frac * y_frac * z_frac * feedback_energy);
+	#endif
+	/*
         atomicAdd(&energy[indx],
           x_frac * y_frac * z_frac * feedback_energy);
-
+	*/
         if (time_direction > 0) {
           Real cell_dti = Calc_Timestep(gamma, density, momentum_x, momentum_y,
                                         momentum_z, energy, indx, dx, dy, dz);
-    
+
           local_dti = fmax(local_dti, cell_dti);
         }
       } // k loop
     } // j loop
   } // i loop
-  
+
   return local_dti;
 }
 
@@ -465,7 +475,7 @@ __device__ Real Apply_Unresolved_SN_old(Real pos_x, Real pos_y, Real pos_z,
                   Real feedback_density, Real feedback_momentum,
                   Real feedback_energy, int indx_x, int indx_y, int indx_z)
 {
-   
+
   Real delta_x = (pos_x - xMin - indx_x * dx) / dx;
   Real delta_y = (pos_y - yMin - indx_y * dy) / dy;
   Real delta_z = (pos_z - zMin - indx_z * dz) / dz;
@@ -475,10 +485,12 @@ __device__ Real Apply_Unresolved_SN_old(Real pos_x, Real pos_y, Real pos_z,
   Real* density    = conserved_device;
   Real* momentum_x = &conserved_device[n_cells*grid_enum::momentum_x];
   Real* momentum_y = &conserved_device[n_cells*grid_enum::momentum_y];
-  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];  
+  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];
   Real* energy     = &conserved_device[n_cells*grid_enum::Energy];
+  #ifdef DE
   Real* gas_energy = &conserved_device[n_cells*grid_enum::GasEnergy];
-  
+  #endif
+
   Real x_frac, y_frac, z_frac;
   Real mag = 0;
 
@@ -517,20 +529,21 @@ __device__ Real Apply_Unresolved_SN_old(Real pos_x, Real pos_y, Real pos_z,
                         / mag * feedback_energy;
 
         atomicAdd(&momentum_x[indx], px);
-        atomicAdd(&momentum_y[indx], py);          
+        atomicAdd(&momentum_y[indx], py);
         atomicAdd(&momentum_z[indx], pz);
         atomicAdd(&energy[indx], e);
         atomicAdd(&density[indx], d);
 
+	#ifdef DE
         gas_energy[indx] = energy[indx] - (momentum_x[indx]*momentum_x[indx] +
                                            momentum_y[indx]*momentum_y[indx] +
                                            momentum_z[indx]*momentum_z[indx])/(2*density[indx]);
-
+	#endif
         if (time_direction > 0) {
           Real cell_dti = Calc_Timestep(gamma, density, momentum_x, momentum_y,
                                         momentum_z, energy, indx, dx, dy, dz);
           local_dti = fmax(local_dti, cell_dti);
-        }  
+        }
       } // k loop
     } // j loop
   } // i loop
@@ -559,10 +572,12 @@ __device__ Real Apply_Unresolved_SN(Real pos_x, Real pos_y, Real pos_z,
   Real* density    = conserved_device;
   Real* momentum_x = &conserved_device[n_cells*grid_enum::momentum_x];
   Real* momentum_y = &conserved_device[n_cells*grid_enum::momentum_y];
-  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];  
+  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];
   Real* energy     = &conserved_device[n_cells*grid_enum::Energy];
+  #ifdef DE
   Real* gas_energy = &conserved_device[n_cells*grid_enum::GasEnergy];
-  
+  #endif
+
   Real x_frac, y_frac, z_frac;
   Real mag = 0;
 
@@ -601,7 +616,7 @@ __device__ Real Apply_Unresolved_SN(Real pos_x, Real pos_y, Real pos_z,
         Real px = x_frac * feedback_momentum + d * vel_x;
         Real py = y_frac * feedback_momentum + d * vel_y;
         Real pz = z_frac * feedback_momentum + d * vel_z;
-	
+
 	kinetic_energy_injected += 0.5 * (px*px + py*py + pz*pz) / fabs(d);
       } // k loop
     } // j loop
@@ -617,11 +632,11 @@ __device__ Real Apply_Unresolved_SN(Real pos_x, Real pos_y, Real pos_z,
   // If kinetic energy injected is greater than available, reduce it by reducing momentum
   if (fabs(kinetic_energy_injected) > fabs(feedback_energy)) {
     kernel_printf("FEEDBACK WARNING: Unresolved SNe attempted to inject more kinetic energy than available so momentum has been reduced\n");
-    kinetic_factor = sqrt(fabs(feedback_energy / kinetic_energy_injected));    
+    kinetic_factor = sqrt(fabs(feedback_energy / kinetic_energy_injected));
     thermal_energy_injection = 0.0;
   }
-  Real thermal_energy_per_d = thermal_energy_injection / fabs(feedback_density);  
-    
+  Real thermal_energy_per_d = thermal_energy_injection / fabs(feedback_density);
+
   // Loop over cube of neighboring cells applying feedback
   for (int i = -1; i < 2; i++) {
     for (int j = -1; j < 2; j++) {
@@ -646,20 +661,22 @@ __device__ Real Apply_Unresolved_SN(Real pos_x, Real pos_y, Real pos_z,
         Real e  = 0.5 * (px*px + py*py + pz*pz) / d + thermal_energy_per_d * d;
 
         atomicAdd(&momentum_x[indx], px);
-        atomicAdd(&momentum_y[indx], py);          
+        atomicAdd(&momentum_y[indx], py);
         atomicAdd(&momentum_z[indx], pz);
         atomicAdd(&energy[indx], e);
         atomicAdd(&density[indx], d);
 
+#ifdef DE
         gas_energy[indx] = energy[indx] - (momentum_x[indx]*momentum_x[indx] +
                                            momentum_y[indx]*momentum_y[indx] +
                                            momentum_z[indx]*momentum_z[indx])/(2*density[indx]);
+#endif //DE
 
         if (time_direction > 0) {
           Real cell_dti = Calc_Timestep(gamma, density, momentum_x, momentum_y,
                                         momentum_z, energy, indx, dx, dy, dz);
           local_dti = fmax(local_dti, cell_dti);
-        }  
+        }
       } // k loop
     } // j loop
   } // i loop
@@ -677,7 +694,7 @@ __device__ Real Apply_Wind(Real pos_x, Real pos_y, Real pos_z, Real xMin,
                   Real feedback_energy, int n_step, part_int_t id, int loop,
                   int indx_x, int indx_y, int indx_z)
 {
-  
+
   Real delta_x = (pos_x - xMin - indx_x * dx) / dx;
   Real delta_y = (pos_y - yMin - indx_y * dy) / dy;
   Real delta_z = (pos_z - zMin - indx_z * dz) / dz;
@@ -688,12 +705,14 @@ __device__ Real Apply_Wind(Real pos_x, Real pos_y, Real pos_z, Real xMin,
   Real* density    = conserved_device;
   Real* momentum_x = &conserved_device[n_cells*grid_enum::momentum_x];
   Real* momentum_y = &conserved_device[n_cells*grid_enum::momentum_y];
-  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];  
+  Real* momentum_z = &conserved_device[n_cells*grid_enum::momentum_z];
   Real* energy     = &conserved_device[n_cells*grid_enum::Energy];
+  #ifdef DE
   Real* gas_energy = &conserved_device[n_cells*grid_enum::GasEnergy];
-  
+  #endif
+
   // loop over the 27 cells to add up all the allocated feedback
-  // momentum magnitudes.  For each cell allocate density and 
+  // momentum magnitudes.  For each cell allocate density and
   // energy based on the ratio of allocated momentum to this overall sum.
   Real mag = 0;
   for (int i = -1; i < 2; i++) {
@@ -729,19 +748,21 @@ __device__ Real Apply_Wind(Real pos_x, Real pos_y, Real pos_z, Real xMin,
                    / mag * feedback_energy;
 
         atomicAdd(&density[indx]   , f_dens);
-        atomicAdd(&momentum_x[indx], px);                         
-        atomicAdd(&momentum_y[indx], py);                      
+        atomicAdd(&momentum_x[indx], px);
+        atomicAdd(&momentum_y[indx], py);
         atomicAdd(&momentum_z[indx], pz);
         atomicAdd(    &energy[indx], f_energy);
 
+#ifdef DE
         gas_energy[indx] = energy[indx] - (momentum_x[indx]*momentum_x[indx] +
           momentum_y[indx]*momentum_y[indx] +
           momentum_z[indx]*momentum_z[indx])/(2*density[indx]);
+#endif
 
         /*
-        energy[indx] = ( momentum_x[indx] * momentum_x[indx] +                                                    
-                         momentum_y[indx] * momentum_y[indx] +                                                     
-                         momentum_z[indx] * momentum_z[indx] ) /                                                    
+        energy[indx] = ( momentum_x[indx] * momentum_x[indx] +
+                         momentum_y[indx] * momentum_y[indx] +
+                         momentum_z[indx] * momentum_z[indx] ) /
                        2 / density[indx] + gasEnergy[indx];
         */
         if (time_direction > 0) {
@@ -749,12 +770,12 @@ __device__ Real Apply_Wind(Real pos_x, Real pos_y, Real pos_z, Real xMin,
                                         momentum_z, energy, indx, dx, dy, dz);
           local_dti = fmax(local_dti, cell_dti);
           /*
-          s_info[FEED_INFO_N * threadIdx.x + i_WIND_ENERGY] += 
+          s_info[FEED_INFO_N * threadIdx.x + i_WIND_ENERGY] +=
                                    (energy[indx] - priorEnergy) * dx * dy * dz;
-          
+
           if (threadIdx.x == 0) {
-            kernel_printf("WF: mom: %.4e, pe: %.4e, e: %.4e, sinfo: %.7e\n", 
-                feedback_momentum, priorEnergy, energy[indx], 
+            kernel_printf("WF: mom: %.4e, pe: %.4e, e: %.4e, sinfo: %.7e\n",
+                feedback_momentum, priorEnergy, energy[indx],
                 s_info[FEED_INFO_N * threadIdx.x + i_WIND_ENERGY]);
           }
           */
@@ -778,7 +799,7 @@ __device__ Real Apply_Wind(Real pos_x, Real pos_y, Real pos_z, Real xMin,
 }
 
 
-__device__ void SN_Feedback(Real pos_x, Real pos_y, Real pos_z, 
+__device__ void SN_Feedback(Real pos_x, Real pos_y, Real pos_z,
 			    Real vel_x, Real vel_y, Real vel_z, Real age,
   Real* mass_dev, part_int_t* id_dev, Real xMin, Real yMin, Real zMin,
   Real xMax, Real yMax, Real zMax, Real dx, Real dy, Real dz, int nx_g,
@@ -824,7 +845,11 @@ __device__ void SN_Feedback(Real pos_x, Real pos_y, Real pos_z,
 
     Real shell_radius = feedback::R_SH * pow(n_0, -0.46) * pow(fabsf(N), 0.29);
     bool is_resolved = 3 * max(dx, max(dy, dz)) <= shell_radius;
-  
+
+    #ifdef FEEDBACK_RESOLVED_ONLY
+    is_resolved= true;
+    #endif
+
     if (is_resolved) {
       // inject energy and density
       if (time_direction > 0) {
@@ -848,7 +873,7 @@ __device__ void SN_Feedback(Real pos_x, Real pos_y, Real pos_z,
         s_info[FEED_INFO_N * tid + i_UNRES_ENERGY] = feedback_energy * dV;
       }
       local_dti = Apply_Unresolved_SN( pos_x, pos_y, pos_z,
-				       vel_x, vel_y, vel_z, 
+				       vel_x, vel_y, vel_z,
 				       xMin,  yMin,  zMin,
 				       dx,  dy,  dz,
 				       nx_g,  ny_g,  n_ghost,  n_cells,
@@ -880,7 +905,7 @@ __device__ void Wind_Feedback(Real pos_x, Real pos_y, Real pos_z, Real age,
   Real feedback_density, feedback_momentum, feedback_energy;
   Real local_dti = 0.0;
   int n_cells = nx_g * ny_g * nz_g;
-  
+
 
   if (age < 0 || age > time_sw_end) return;
   feedback_momentum  = GetWindFlux(age, dev_sw_p, sw_dt, time_sw_start, time_sw_end);
@@ -896,13 +921,13 @@ __device__ void Wind_Feedback(Real pos_x, Real pos_y, Real pos_z, Real age,
 
   /* TODO refactor into separate kernel call
   if (time_direction > 0) {
-    mass_dev[gtid]   -= feedback_density * dV; 
+    mass_dev[gtid]   -= feedback_density * dV;
   }*/
 
   if (time_direction > 0) {
-    // we log net momentum, not momentum density, and magnitude (not the 
+    // we log net momentum, not momentum density, and magnitude (not the
     // component along a direction)
-    s_info[FEED_INFO_N * tid + i_WIND_MOMENTUM] = 
+    s_info[FEED_INFO_N * tid + i_WIND_MOMENTUM] =
                         feedback_momentum * dV * sqrt(3.0);
     s_info[FEED_INFO_N * tid + i_WIND_ENERGY] = feedback_energy * dV;
   }
@@ -911,14 +936,14 @@ __device__ void Wind_Feedback(Real pos_x, Real pos_y, Real pos_z, Real age,
     /*
     if (abs(feedback_momentum) > 0) {
       if (feedback_momentum > 0) {
-        kernel_printf("WIND: %.5e yrs, %3f log dynes, %f log power  \n", 
-        age * 1000, 
+        kernel_printf("WIND: %.5e yrs, %3f log dynes, %f log power  \n",
+        age * 1000,
         log10(abs(feedback_momentum)/mass_dev[gtid]*S_99_TOTAL_MASS*dV*sqrt(3.0)*FORCE_UNIT/dt),
         log10(abs(feedback_energy)/mass_dev[gtid]*S_99_TOTAL_MASS*dV*
         MASS_UNIT*VELOCITY_UNIT*VELOCITY_UNIT/TIME_UNIT/dt));
       } else {
-        kernel_printf("-WIND: %.5e yrs, %3f log dynes, %f log power  \n", 
-        age * 1000, 
+        kernel_printf("-WIND: %.5e yrs, %3f log dynes, %f log power  \n",
+        age * 1000,
         log10(abs(feedback_momentum)/mass_dev[gtid]*S_99_TOTAL_MASS*dV*sqrt(3.0)*FORCE_UNIT/dt),
         log10(abs(feedback_energy)/mass_dev[gtid]*S_99_TOTAL_MASS*dV*
         MASS_UNIT*VELOCITY_UNIT*VELOCITY_UNIT/TIME_UNIT/dt));
@@ -926,10 +951,10 @@ __device__ void Wind_Feedback(Real pos_x, Real pos_y, Real pos_z, Real age,
       */
       /*
       if (time_direction > 0) {
-        kernel_printf("       WIND: n_s: %d, id: %lld, l: %d, p: %.9e, e: %.9e, d: %.9e\n", 
+        kernel_printf("       WIND: n_s: %d, id: %lld, l: %d, p: %.9e, e: %.9e, d: %.9e\n",
         n_step, id_dev[gtid], loop, feedback_momentum, feedback_energy, feedback_density);
       } else {
-        kernel_printf("       -WIND: n_s: %d, id: %lld, l: %d, p: %.9e, e: %.9e, d: %.9e\n", 
+        kernel_printf("       -WIND: n_s: %d, id: %lld, l: %d, p: %.9e, e: %.9e, d: %.9e\n",
         n_step, id_dev[gtid], loop, feedback_momentum, feedback_energy, feedback_density);
 
       }
@@ -945,9 +970,9 @@ __device__ void Wind_Feedback(Real pos_x, Real pos_y, Real pos_z, Real age,
 }
 
 
-__device__ void Cluster_Feedback_Helper( part_int_t n_local, 
-					 Real* pos_x_dev, Real* pos_y_dev, Real* pos_z_dev, 
-					 Real* vel_x_dev, Real* vel_y_dev, Real* vel_z_dev,					 
+__device__ void Cluster_Feedback_Helper( part_int_t n_local,
+					 Real* pos_x_dev, Real* pos_y_dev, Real* pos_z_dev,
+					 Real* vel_x_dev, Real* vel_y_dev, Real* vel_z_dev,
 					 Real* age_dev, Real* mass_dev,
   part_int_t* id_dev, Real xMin, Real yMin, Real zMin, Real xMax, Real yMax,
   Real zMax, Real dx, Real dy, Real dz, int nx_g, int ny_g, int nz_g,
@@ -987,7 +1012,7 @@ __device__ void Cluster_Feedback_Helper( part_int_t n_local,
 
   // note age_dev is actually the time of birth
   Real age = t - age_dev[gtid];
-  
+
   const Real vel_x = vel_x_dev[gtid];
   const Real vel_y = vel_y_dev[gtid];
   const Real vel_z = vel_z_dev[gtid];
@@ -1003,14 +1028,14 @@ __device__ void Cluster_Feedback_Helper( part_int_t n_local,
   #endif
 
   // when applying different types of feedback, undoing the step requires
-  // reverising the order 
+  // reverising the order
   if (time_direction > 0) {
-    if (is_sn_feedback) SN_Feedback(pos_x, pos_y, pos_z, vel_x, vel_y, vel_z, 
+    if (is_sn_feedback) SN_Feedback(pos_x, pos_y, pos_z, vel_x, vel_y, vel_z,
 				    age, mass_dev, id_dev,
-				    xMin, yMin, zMin, 
-				    xMax, yMax, zMax, 
-				    dx, dy, dz, 
-				    nx_g, ny_g, nz_g, n_ghost, n_step, t, dt, dti,				    
+				    xMin, yMin, zMin,
+				    xMax, yMax, zMax,
+				    dx, dy, dz,
+				    nx_g, ny_g, nz_g, n_ghost, n_step, t, dt, dti,
 				    dev_snr, snr_dt, time_sn_start, time_sn_end,
 				    prev_dens, time_direction, s_info, conserved_dev,
 				    gamma, loop, indx_x, indx_y, indx_z);
@@ -1027,12 +1052,12 @@ __device__ void Cluster_Feedback_Helper( part_int_t n_local,
                           dev_sw_e, sw_dt, time_sw_start, time_sw_end,
                           time_direction, s_info, conserved_dev, gamma, loop,
                           indx_x, indx_y, indx_z);
-    if (is_sn_feedback) SN_Feedback(pos_x, pos_y, pos_z, 
+    if (is_sn_feedback) SN_Feedback(pos_x, pos_y, pos_z,
 				    vel_x, vel_y, vel_z,
 				    age, mass_dev, id_dev,
-				    xMin, yMin, zMin, 
-				    xMax, yMax, zMax, 
-				    dx, dy, dz, 
+				    xMin, yMin, zMin,
+				    xMax, yMax, zMax,
+				    dx, dy, dz,
 				    nx_g, ny_g, nz_g, n_ghost, n_step, t, dt, dti,
 				    dev_snr, snr_dt, time_sn_start, time_sn_end,
 				    prev_dens, time_direction, s_info, conserved_dev,
@@ -1045,7 +1070,7 @@ __device__ void Cluster_Feedback_Helper( part_int_t n_local,
 
 __global__ void Cluster_Feedback_Kernel(
     part_int_t n_local, part_int_t* id_dev, Real* pos_x_dev, Real* pos_y_dev,
-    Real* pos_z_dev, Real* vel_x_dev, Real* vel_y_dev, Real* vel_z_dev, 
+    Real* pos_z_dev, Real* vel_x_dev, Real* vel_y_dev, Real* vel_z_dev,
     Real* mass_dev, Real* age_dev, Real xMin, Real yMin,
     Real zMin, Real xMax, Real yMax, Real zMax, Real dx, Real dy, Real dz,
     int nx_g, int ny_g, int nz_g, int n_ghost, Real t, Real dt, Real* dti,
@@ -1057,26 +1082,26 @@ __global__ void Cluster_Feedback_Kernel(
 
   int tid  = threadIdx.x;
 
-  // for collecting SN feedback information  
-  __shared__ Real s_info[FEED_INFO_N * TPB_FEEDBACK];  
+  // for collecting SN feedback information
+  __shared__ Real s_info[FEED_INFO_N * TPB_FEEDBACK];
   s_info[FEED_INFO_N * tid]     = 0;  // number of supernovae
   s_info[FEED_INFO_N * tid + 1] = 0;  // number of resolved events
   s_info[FEED_INFO_N * tid + 2] = 0;  // number of unresolved events
   s_info[FEED_INFO_N * tid + 3] = 0;  // resolved energy
   s_info[FEED_INFO_N * tid + 4] = 0;  // unresolved momentum
   s_info[FEED_INFO_N * tid + 5] = 0;  // unresolved KE added via momentum
-  s_info[FEED_INFO_N * tid + 6] = 0;  // wind momentum  
-  s_info[FEED_INFO_N * tid + 7] = 0;  // wind energy added  
+  s_info[FEED_INFO_N * tid + 6] = 0;  // wind momentum
+  s_info[FEED_INFO_N * tid + 7] = 0;  // wind energy added
 
   Cluster_Feedback_Helper(n_local,
-			  pos_x_dev, pos_y_dev, pos_z_dev, 
-			  vel_x_dev, vel_y_dev, vel_z_dev, 
+			  pos_x_dev, pos_y_dev, pos_z_dev,
+			  vel_x_dev, vel_y_dev, vel_z_dev,
 			  age_dev, mass_dev, id_dev,
 			  xMin, yMin, zMin, xMax, yMax, zMax, dx, dy, dz, nx_g, ny_g, nz_g,
 			  n_ghost, n_step, t, dt, dti, dev_snr, snr_dt, time_sn_start,
 			  time_sn_end, prev_dens, dev_sw_p, dev_sw_e, sw_dt, time_sw_start,
 			  time_sw_end,time_direction, s_info, density, gamma, loop);
-  
+
   __syncthreads();
 
   // reduce the info from all the threads in the block
@@ -1146,7 +1171,7 @@ __global__ void Adjust_Cluster_Mass_Kernel(part_int_t n_local, Real* pos_x_dev,
   //if (!is_alone) return;
 
   Real age = t - age_dev[gtid];
-  
+
   #ifndef NO_SN_FEEDBACK
   Real average_num_sn = GetSNRate(age, dev_snr, snr_dt, time_sn_start,
                              time_sn_end) * mass_dev[gtid] * dt;
@@ -1154,21 +1179,21 @@ __global__ void Adjust_Cluster_Mass_Kernel(part_int_t n_local, Real* pos_x_dev,
   mass_dev[gtid] -= N * feedback::MASS_PER_SN;
   #endif
 
-  #ifndef NO_WIND_FEEDBACK  
+  #ifndef NO_WIND_FEEDBACK
   Real feedback_momentum  = GetWindFlux(age, dev_sw_p, sw_dt, time_sw_start,
                                 time_sw_end);
   Real feedback_energy    = GetWindPower(age, dev_sw_e, sw_dt, time_sw_start,
                                 time_sw_end);
   Real feedback_mass_rate = GetWindMass(feedback_momentum, feedback_energy);
 
-  mass_dev[gtid] -= feedback_mass_rate * dt; 
+  mass_dev[gtid] -= feedback_mass_rate * dt;
   #endif
 }
 
 
-__device__ void Set_Average_Density(int indx_x, int indx_y, int indx_z, 
+__device__ void Set_Average_Density(int indx_x, int indx_y, int indx_z,
                                     int nx_g, int ny_g, int n_ghost,
-                                    Real* density, Real ave_dens) 
+                                    Real* density, Real ave_dens)
 {
   for (int i = -1; i < 2; i++) {
     for (int j = -1; j < 2; j++) {
@@ -1235,7 +1260,7 @@ __global__ void Set_Ave_Density_Kernel(
     if (time_sw_start <= age && age <= time_sw_end) {
       ave_dens = GetAverageDensity(density, indx_x, indx_y, indx_z,
                                    nx_g, ny_g, n_ghost);
-      Set_Average_Density(indx_x, indx_y, indx_z, 
+      Set_Average_Density(indx_x, indx_y, indx_z,
                           nx_g, ny_g, n_ghost, density, ave_dens);
       // since we've set the average density, no need to keep
       // checking whether we should do so.
@@ -1266,6 +1291,11 @@ __global__ void Set_Ave_Density_Kernel(
   }
 }
 
+
+
+void Check_For_Extreme_Temperature(Real* dev_conserved, int n_cells, Real gamma, Real lower_limit, Real upper_limit, int marker);
+
+
 /**
  * @brief Stellar feedback function (SNe and stellar winds)
  *
@@ -1275,12 +1305,16 @@ __global__ void Set_Ave_Density_Kernel(
  */
 Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
 {
+
+
+  Check_For_Extreme_Temperature(G.C.device, G.H.n_cells, gama, 10.0, 1e11, 201);
+
   #ifdef CPU_TIME
   G.Timer.Feedback.Start();
   #endif
 
   if (G.H.dt == 0) return 0.0;
-  
+
   Real h_dti = 0.0;
   int time_direction, ngrid;
   Real h_info[FEED_INFO_N] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -1300,8 +1334,8 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
     ngrid =  (G.Particles.n_local - 1) / TPB_FEEDBACK + 1;
     CHECK(cudaMalloc((void**)&d_info, FEED_INFO_N * sizeof(Real)));
 
-    // before applying feedback, set gas density around clusters to the 
-    // average value from the 27 neighboring cells.  We don't want to 
+    // before applying feedback, set gas density around clusters to the
+    // average value from the 27 neighboring cells.  We don't want to
     // do this during application of feedback since "undoing it" in the
     // event that the time step is too large becomes difficult.
     hipLaunchKernelGGL(
@@ -1316,6 +1350,8 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
 
   int loop_counter = 0;
 
+  Check_For_Extreme_Temperature(G.C.device, G.H.n_cells, gama, 10.0, 1e11, 204);
+
   do {
     time_direction = 1;
     loop_counter++;
@@ -1328,8 +1364,8 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
       hipLaunchKernelGGL(
           Cluster_Feedback_Kernel, ngrid, TPB_FEEDBACK, 0, 0,
           G.Particles.n_local, G.Particles.partIDs_dev, G.Particles.pos_x_dev,
-          G.Particles.pos_y_dev, G.Particles.pos_z_dev, 
-	  G.Particles.vel_x_dev, G.Particles.vel_y_dev, G.Particles.vel_z_dev, 
+          G.Particles.pos_y_dev, G.Particles.pos_z_dev,
+	  G.Particles.vel_x_dev, G.Particles.vel_y_dev, G.Particles.vel_z_dev,
 	  G.Particles.mass_dev,
           G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal,
           G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max, G.H.dx, G.H.dy,
@@ -1347,7 +1383,11 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
     #endif  // MPI_CHOLLA
     if (h_dti != 0) {
       chprintf("+++++++  feed dt = %.12e, H.dt = %.12e\n", C_cfl / h_dti, G.H.dt);
-    } 
+    }
+
+    Check_For_Extreme_Temperature(G.C.device, G.H.n_cells, gama, 10.0, 1e11, 206);
+    
+    // temporarily disable rewinding
 
     if (h_dti != 0 && (C_cfl / h_dti < G.H.dt))
     {
@@ -1357,8 +1397,8 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
         hipLaunchKernelGGL(
             Cluster_Feedback_Kernel, ngrid, TPB_FEEDBACK, 0, 0,
             G.Particles.n_local, G.Particles.partIDs_dev, G.Particles.pos_x_dev,
-            G.Particles.pos_y_dev, G.Particles.pos_z_dev, 
-	    G.Particles.vel_x_dev, G.Particles.vel_y_dev, G.Particles.vel_z_dev, 
+            G.Particles.pos_y_dev, G.Particles.pos_z_dev,
+	    G.Particles.vel_x_dev, G.Particles.vel_y_dev, G.Particles.vel_z_dev,
 	    G.Particles.mass_dev,
             G.Particles.age_dev, G.H.xblocal, G.H.yblocal, G.H.zblocal,
             G.H.xblocal_max, G.H.yblocal_max, G.H.zblocal_max, G.H.dx, G.H.dy,
@@ -1369,7 +1409,7 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
 
         CHECK(cudaDeviceSynchronize());
       }
-      
+
       G.H.dt = C_cfl / h_dti;
       if (loop_counter > 2) {  // avoid excessive looping
         G.H.dt = 0.9 * C_cfl / h_dti;
@@ -1377,12 +1417,15 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
     }
   } while (time_direction == -1);
 
+
+  Check_For_Extreme_Temperature(G.C.device, G.H.n_cells, gama, 10.0, 1e11, 203);
+
   // TODO reduce cluster mass
   if (G.Particles.n_local > 0) {
     hipLaunchKernelGGL(
       Adjust_Cluster_Mass_Kernel, ngrid, TPB_FEEDBACK, 0, 0,
       G.Particles.n_local, G.Particles.pos_x_dev, G.Particles.pos_y_dev,
-      G.Particles.pos_z_dev, 
+      G.Particles.pos_z_dev,
       G.Particles.age_dev, G.Particles.mass_dev,
       G.Particles.partIDs_dev,
       G.H.xblocal, G.H.yblocal, G.H.zblocal, G.H.xblocal_max, G.H.yblocal_max,
@@ -1439,21 +1482,21 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
   if (analysis.countResolved > 0 || analysis.countUnresolved > 0) {
     global_resolved_ratio = analysis.countResolved /
                           (analysis.countResolved + analysis.countUnresolved);
-  
+
   chprintf(": number of SN: %d,(R: %d, UR: %d)\n", (int)info[feedback::SN],
       (long)info[feedback::RESOLVED], (long)info[feedback::NOT_RESOLVED]);
   chprintf(
       "    cummulative: #SN: %d, ratio of resolved (R: %d, UR: %d) = %.3e\n",
       (long)analysis.countSN, (long)analysis.countResolved,
       (long)analysis.countUnresolved, global_resolved_ratio);
-  chprintf("    sn  r energy  : %.5e erg, cumulative: %.5e erg\n", 
+  chprintf("    sn  r energy  : %.5e erg, cumulative: %.5e erg\n",
       info[feedback::ENERGY] * FORCE_UNIT * LENGTH_UNIT,
       analysis.totalEnergy * FORCE_UNIT * LENGTH_UNIT);
-  chprintf("    sn ur energy  : %.5e erg, cumulative: %.5e erg\n", 
-      info[feedback::UNRES_ENERGY] * FORCE_UNIT * LENGTH_UNIT, 
+  chprintf("    sn ur energy  : %.5e erg, cumulative: %.5e erg\n",
+      info[feedback::UNRES_ENERGY] * FORCE_UNIT * LENGTH_UNIT,
       analysis.totalUnresEnergy * FORCE_UNIT * LENGTH_UNIT);
   chprintf("    sn momentum  : %.5e SM km/s, cumulative: %.5e SM km/s\n",
-      info[feedback::MOMENTUM] * VELOCITY_UNIT / 1e5, 
+      info[feedback::MOMENTUM] * VELOCITY_UNIT / 1e5,
       analysis.totalMomentum * VELOCITY_UNIT / 1e5);
   }
   #endif //NO_SN_FEEDBACK
@@ -1477,6 +1520,9 @@ Real feedback::Cluster_Feedback(Grid3D& G, FeedbackAnalysis& analysis)
   G.Timer.Feedback.End();
   #endif
 
+  Check_For_Extreme_Temperature(G.C.device, G.H.n_cells, gama, 10.0, 1e11, 202);
+
+  G.H.dt = min(C_cfl / h_dti, G.H.dt);
   return h_dti;
 }
 

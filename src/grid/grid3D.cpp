@@ -43,6 +43,9 @@
   #include "../dust/dust_cuda.h"  // provides Dust_Update
 #endif
 
+void Check_For_Extreme_Temperature(Real* dev_conserved, int n_cells, Real gamma, Real lower_limit, Real upper_limit, int marker);
+
+
 /*! \fn Grid3D(void)
  *  \brief Constructor for the Grid. */
 Grid3D::Grid3D(void)
@@ -436,6 +439,10 @@ Real Grid3D::Update_Grid(void)
   Timer.Hydro_Integrator.Start();
 #endif  // CPU_TIME
 
+
+  Check_For_Extreme_Temperature(C.device, H.n_cells, gama, 10.0, 1e11, 0);                                     
+
+
   // Run the hydro integrator on the grid
   if (H.nx > 1 && H.ny == 1 && H.nz == 1)  // 1D
   {
@@ -481,6 +488,7 @@ Real Grid3D::Update_Grid(void)
 #ifdef CPU_TIME
   Timer.Hydro_Integrator.End();
 #endif  // CPU_TIME
+  Check_For_Extreme_Temperature(C.device, H.n_cells, gama, 10.0, 1e11, 1);
 
 #ifdef CUDA
 
@@ -490,6 +498,7 @@ Real Grid3D::Update_Grid(void)
     #endif
   // ==Apply Cooling from cooling/cooling_cuda.h==
   Cooling_Update(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.n_fields, H.dt, gama);
+  Check_For_Extreme_Temperature(C.device, H.n_cells, gama, 10.0, 1e11, 2);
     #ifdef CPU_TIME
   Timer.Cooling_GPU.End();
     #endif
@@ -509,6 +518,20 @@ Real Grid3D::Update_Grid(void)
     #endif
   #endif
 
+  #ifdef VELOCITY_CEILING
+  const Real V_ceiling_cholla = 0.005; // roughly 10000 km/s
+  Velocity_Ceiling(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.n_fields, gama, V_ceiling_cholla);
+  #endif //VELOCITY_CEILING
+
+  // Temperature Ceiling
+  #ifdef TEMPERATURE_CEILING
+  // 1e51 ergs / (m_p * (pc/cm)^3) = 45000 km/s
+  // sqrt(1e10 K * kB/ m_mp) = 9000 km/s
+  const Real T_ceiling_kelvin = 5e9;// 1e10;
+  Temperature_Ceiling(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.n_fields, gama, T_ceiling_kelvin);
+  #endif //TEMPERATURE_CEILING
+
+  Check_For_Extreme_Temperature(C.device, H.n_cells, gama, 10.0, 1e11, 5);
   #ifdef AVERAGE_SLOW_CELLS
   // Set the min_delta_t for averaging a slow cell
   Real max_dti_slow;
@@ -522,7 +545,7 @@ Real Grid3D::Update_Grid(void)
   Average_Slow_Cells(C.device, H.nx, H.ny, H.nz, H.n_ghost, H.n_fields, H.dx, H.dy, H.dz, gama, max_dti_slow,
                      H.xbound, H.ybound, H.zbound, nx_off, ny_off, nz_off);
   #endif  // AVERAGE_SLOW_CELLS
-
+  Check_For_Extreme_Temperature(C.device, H.n_cells, gama, 10.0, 1e11, 6);
   // ==Calculate the next time step using Calc_dt_GPU from hydro/hydro_cuda.h==
   max_dti = Calc_Inverse_Timestep();
 

@@ -254,10 +254,6 @@ int main(int argc, char *argv[])
       G.H.dt = outtime - G.H.t;
     }
 
-#if defined(FEEDBACK) && defined(PARTICLE_AGE)
-    feedback::Cluster_Feedback(G, sn_analysis);
-#endif  // FEEDBACK && PARTICLE_AGE
-
 #ifdef PARTICLES
     // Advance the particles KDK( first step ): Velocities are updated by 0.5*dt
     // and positions are updated by dt
@@ -296,6 +292,12 @@ int main(int argc, char *argv[])
 #ifdef STAR_FORMATION
     star_formation::Star_Formation(G);
 #endif
+
+#if defined(FEEDBACK) && defined(PARTICLE_AGE)
+    feedback::Cluster_Feedback(G, sn_analysis);
+#endif  // FEEDBACK && PARTICLE_AGE
+
+
 
 #ifdef CPU_TIME
     G.Timer.Total.End();
