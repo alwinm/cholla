@@ -5,10 +5,11 @@ DFLAGS    += -DMPI_CHOLLA
 DFLAGS    += -DPRECISION=2
 DFLAGS    += -DPPMC
 DFLAGS    += -DHLLC
+DFLAGS    += -DNO_DIODE
 
 # Integrator
-DFLAGS    += -DSIMPLE
-#DFLAGS    += -DVL
+#DFLAGS    += -DSIMPLE
+DFLAGS    += -DVL
 
 # Apply a density and temperature floor
 DFLAGS    += -DDENSITY_FLOOR

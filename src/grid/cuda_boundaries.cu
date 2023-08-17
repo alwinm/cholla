@@ -118,6 +118,7 @@ __global__ void SetGhostCellsKernel(Real * c_head,
     }
     // energy and momentum correction for transmission
     // Diode: only allow outflow
+    #ifndef NO_DIODE
     if (flags[dir] == 3){
       //
       int momdex = gidx + (dir/2+1)*n_cells;
@@ -139,6 +140,7 @@ __global__ void SetGhostCellsKernel(Real * c_head,
 	}
       }
     }//end energy correction for transmissive boundaries
+    #endif
   }//end idx>=0
 }//end function
 
