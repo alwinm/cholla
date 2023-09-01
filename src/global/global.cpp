@@ -412,6 +412,8 @@ void parse_param(char *name,char *value, struct parameters *parms){
 #ifdef SUPERNOVA
   else if (strcmp(name, "supernova_e")==0)  
     parms->supernova_e = atoi(value);
+  else if (strcmp(name, "supernova_sfr")==0)  
+    parms->supernova_sfr = atof(value);  
   else if (strcmp(name, "supernova_rcl")==0)  
     parms->supernova_rcl = atof(value);
 #endif

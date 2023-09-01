@@ -55,5 +55,5 @@ DFLAGS    += $(OUTPUT)
 #This is set in the system make.host file
 DFLAGS    += $(MPI_GPU)  
 
-DFLAGS    += -DPARALLEL_OMP
-DFLAGS    += -DN_OMP_THREADS=$(OMP_NUM_THREADS)
+#DFLAGS    += -DPARALLEL_OMP
+#DFLAGS    += -DN_OMP_THREADS=$(OMP_NUM_THREADS)

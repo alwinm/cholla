@@ -318,6 +318,7 @@ struct parameters
 #endif
 #ifdef SUPERNOVA
   int supernova_e;
+  Real supernova_sfr=20000.0;
   Real supernova_rcl;
 #endif
 };

@@ -26,7 +26,7 @@ namespace Supernova {
 
 }
 
-__device__ double atomicMax(double* address, double val)
+__device__ double atomicMaxManual(double* address, double val)
 {
   unsigned long long int* address_as_ull = (unsigned long long int*)address;
   unsigned long long int old = *address_as_ull, assumed;
@@ -482,7 +482,7 @@ __global__ void Supernova_Feedback_Kernel(Real *hydro_dev, Real *cluster_array, 
   #endif
   if (weight > 0.0 && dt > 0.0){
     Real dti = Calc_Timestep(hydro_dev, gidx, n_cells, gamma, dx, dy, dz);
-    atomicMax(d_dti,dti);
+    atomicMaxManual(d_dti,dti);
   }
 
   // Tracker Code to track quantities 

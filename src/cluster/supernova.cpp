@@ -88,7 +88,7 @@ void Supernova::Initialize(Grid3D G, struct parameters *P){
 
 
   R_cl = P->supernova_rcl;
-  SFR = 20000.0;
+  SFR = P->supernova_sfr;
   supernova_e = P->supernova_e;
 
   dx = H.dx;
